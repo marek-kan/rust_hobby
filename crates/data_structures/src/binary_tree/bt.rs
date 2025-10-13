@@ -8,7 +8,17 @@ pub struct Node<T> {
 
 impl<T> Node<T> {
     pub fn new(value: T) -> Node<T> {
-        Node{value:value, left: None, right: None}
+        Node{value: value, left: None, right: None}
+    }
+
+    pub fn assign_left(&mut self, value: T) -> &mut Node<T> {
+        self.left = Some(Box::new(Node { value: value, left: None, right: None }));
+        self.left.as_mut().unwrap()
+    }
+
+    pub fn assign_right(&mut self, value: T) -> &mut Node<T> {
+        self.right = Some(Box::new(Node { value: value, left: None, right: None }));
+        self.right.as_mut().unwrap()
     }
 
     pub fn height(&self) -> i32 {
@@ -17,15 +27,28 @@ impl<T> Node<T> {
 
         left_height.max(right_height)
     }
-    // TODO: Implement proper `depth` function
-    // - Depth = number of edges from ROOT -> specific NODE (not value).
-    // - Given the root (self), find this exact node in the tree.
-    // - Must search by node identity (pointer), not by value, since multiple nodes can hold the same value 
-    //   (e.g., two distinct nodes with value 4). Use `std::ptr::eq` to check.
-    pub fn depth(&self, node: &Link<T>) -> Option<i32> {
-        match node {
-            Some(_) => return Some(-99),
-            None => return None
-        };
+}
+
+pub struct BinaryTree<T> {
+    pub root: Node<T>
+}
+impl <T> BinaryTree<T> {
+    pub fn new(node: Node<T>) -> BinaryTree<T> {
+        BinaryTree { root: node }
+    }
+
+    fn _depth(&self, node: &Node<T>, target: &Node<T>, current_depth: i64) -> i64 {
+        if std::ptr::eq(node, target) {
+            return current_depth
+        }
+
+        let left_depth = node.left.as_ref().map_or(0, |n| self._depth(n, target, current_depth + 1));
+        let right_depth = node.right.as_ref().map_or(0, |n| self._depth(n, target, current_depth + 1));
+
+        left_depth.max(right_depth)
+    }
+
+    pub fn depth(&self, target: &Node<T>) -> i64 {
+        self._depth(&self.root, target, 0)
     }
 }
