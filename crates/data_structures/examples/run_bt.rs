@@ -15,15 +15,15 @@ fn main() {
 
     let mut bt = bt::BinaryTree::new(bt::Node::new(1));
     {
-        let left = bt.root.assign_left(2);
-        left.assign_left(3);
-        left.assign_right(4);
+        let left = bt.root.assign_left(2).unwrap();
+        left.assign_left(3).unwrap();
+        left.assign_right(4).unwrap();
     };
 
     {
-        let right = bt.root.assign_right(5);
-        let right = right.assign_right(6);
-        right.assign_right(7);
+        let right = bt.root.assign_right(5).unwrap();
+        let right = right.assign_right(6).unwrap();
+        right.assign_right(7).unwrap();
     };
 
     println!("height of root: {}", root.height());
@@ -50,5 +50,13 @@ fn main() {
         };
     
     println!("Height of the BT: {}", bt.root.height());
+
+    let inorder_vals: Vec<&i64> = bt.inorder().collect();
+    let preorder_vals: Vec<&i64> = bt.preorder().collect();
+    let postorder_vals: Vec<&i64> = bt.postorder().collect();
+
+    println!("In-order: {:?}", inorder_vals);
+    println!("Pre-order: {:?}", preorder_vals);
+    println!("Post-order: {:?}", postorder_vals)
 
 }
