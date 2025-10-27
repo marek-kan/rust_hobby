@@ -1,4 +1,4 @@
-use data_structures::binary_tree::bt;
+use data_structures::binary_tree::bt::{self, Tree};
 
 fn main() {
     let mut root = bt::Node::new(1);
@@ -51,9 +51,9 @@ fn main() {
     
     println!("Height of the BT: {}", bt.root.height());
 
-    let inorder_vals: Vec<&i64> = bt.inorder().collect();
-    let preorder_vals: Vec<&i64> = bt.preorder().collect();
-    let postorder_vals: Vec<&i64> = bt.postorder().collect();
+    let inorder_vals: Vec<&i64> = bt.inorder().unwrap().collect();
+    let preorder_vals: Vec<&i64> = bt.preorder().unwrap().collect();
+    let postorder_vals: Vec<&i64> = bt.postorder().unwrap().collect();
 
     println!("In-order: {:?}", inorder_vals);
     println!("Pre-order: {:?}", preorder_vals);
