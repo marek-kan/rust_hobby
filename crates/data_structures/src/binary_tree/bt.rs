@@ -56,6 +56,8 @@ impl<T> Node<T> {
 pub trait Tree<T> {
     fn get_root(&self) -> Option<&Node<T>>;
 
+    fn get_mut_root(&mut self) -> Option<&mut Node<T>>;
+
     fn _depth(&self, node: &Node<T>, target: &Node<T>, current_depth: usize) -> usize {
         if std::ptr::eq(node, target) {
             return current_depth
@@ -264,5 +266,9 @@ impl <T> BinaryTree<T> {
 impl<T> Tree<T> for BinaryTree<T> {
     fn get_root(&self) -> Option<&Node<T>> {
         Some(&self.root)
+    }
+
+    fn get_mut_root(&mut self) -> Option<&mut Node<T>> {
+        Some(&mut self.root)
     }
 }
