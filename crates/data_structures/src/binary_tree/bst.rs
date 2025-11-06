@@ -2,6 +2,11 @@ use std::{cmp::Ordering, fmt::Display};
 
 use crate::binary_tree::bt::{Tree, Link, Node};
 
+#[derive(Debug)]
+pub enum ParentError {
+    ParentNodeNotFound
+}
+
 pub trait SearchTree<T>: Tree<T> {
     fn search<'a>(&'a mut self, node: &Node<T>) -> &'a mut Node<T>;
     fn insert(&mut self, node: Node<T>);
@@ -9,13 +14,52 @@ pub trait SearchTree<T>: Tree<T> {
 }
 
 pub struct BinarySearchTree<T> {
-    root: Node<T>
+    pub root: Node<T>
 }
 
 impl<T: Ord> BinarySearchTree<T> {
 
     pub fn new(node: Node<T>) -> BinarySearchTree<T> {
         BinarySearchTree { root: node }
+    }
+
+    fn check_child(child: &Link<T>, reference_node: &Node<T>) -> bool {
+        match child.as_deref() {
+            Some(node) => {
+                if node.value == reference_node.value { true }
+                else { false }
+            },
+            None => false
+        }
+    }
+
+    pub fn get_parent(&mut self, node: &Node<T>) -> Result<&mut Node<T>, ParentError> {
+        let mut stack = vec![&mut self.root];
+
+        loop {
+            if let Some(current) = stack.pop() {
+                if Self::check_child(&current.left, &node) {
+                    return Ok(current)
+                }
+                
+                else if Self::check_child(&current.right, &node) {
+                    return Ok(current)
+                }
+                
+                else {
+                    if let Some(right) = current.right.as_deref_mut() {
+                        stack.push(right);
+                    }
+                    
+                    if let Some(left) = current.left.as_deref_mut() {
+                        stack.push(left);
+                    }
+                }
+            }
+            else {
+                return Err(ParentError::ParentNodeNotFound)
+            }
+        }
     }
  
     fn _search<'a>(link: &'a mut Link<T>, key: &T) -> Option<&'a mut Node<T>> {
@@ -88,7 +132,7 @@ impl<T: Ord + Display> SearchTree<T> for BinarySearchTree<T> {
     }
     
     fn delete(&mut self, node: &Node<T>) {
-        
+
     }
 
     fn insert(&mut self, node: Node<T>) {
