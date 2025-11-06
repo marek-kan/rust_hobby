@@ -1,4 +1,4 @@
-type Link<T> = Option<Box<Node<T>>>;
+pub type Link<T> = Option<Box<Node<T>>>;
 
 
 #[derive(Debug)]
