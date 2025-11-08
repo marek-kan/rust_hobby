@@ -3,160 +3,156 @@ use std::{cmp::Ordering, fmt::Display};
 use crate::binary_tree::bt::{Tree, Link, Node};
 
 #[derive(Debug)]
-pub enum ParentError {
-    ParentNodeNotFound
-}
+pub enum ParentError { ParentNodeNotFound }
+
+
+enum SearchStep { Left, Right, Here }
+
 
 pub trait SearchTree<T>: Tree<T> {
-    fn search<'a>(&'a mut self, node: &Node<T>) -> &'a mut Node<T>;
+    fn search<'a>(&'a mut self, node: &Node<T>) -> &'a mut Link<T>;
     fn insert(&mut self, node: Node<T>);
     fn delete(&mut self, node: &Node<T>);
 }
 
+
 pub struct BinarySearchTree<T> {
-    pub root: Node<T>
+    pub root: Link<T>
 }
 
-impl<T: Ord> BinarySearchTree<T> {
+impl<T: Ord + Display> BinarySearchTree<T> {
 
     pub fn new(node: Node<T>) -> BinarySearchTree<T> {
-        BinarySearchTree { root: node }
+        BinarySearchTree { root: Some(Box::new(node)) }
     }
 
-    fn check_child(child: &Link<T>, reference_node: &Node<T>) -> bool {
-        match child.as_deref() {
-            Some(node) => {
-                if node.value == reference_node.value { true }
-                else { false }
-            },
-            None => false
-        }
-    }
+    // fn check_child(child: &Link<T>, reference_node: &Node<T>) -> bool {
+    //     match child.as_deref() {
+    //         Some(node) => {
+    //             if node.value == reference_node.value { true }
+    //             else { false }
+    //         },
+    //         None => false
+    //     }
+    // }
 
-    pub fn get_parent(&mut self, node: &Node<T>) -> Result<&mut Node<T>, ParentError> {
-        let mut stack = vec![&mut self.root];
+    // pub fn get_parent(&mut self, node: &Node<T>) -> Result<&mut Node<T>, ParentError> {
+    //     let mut stack = vec![&mut self.root];
 
-        loop {
-            if let Some(current) = stack.pop() {
-                if Self::check_child(&current.left, &node) {
-                    return Ok(current)
-                }
+    //     loop {
+    //         if let Some(current) = stack.pop() {
+    //             if Self::check_child(&current.left, &node) {
+    //                 return Ok(current)
+    //             }
                 
-                else if Self::check_child(&current.right, &node) {
-                    return Ok(current)
-                }
+    //             else if Self::check_child(&current.right, &node) {
+    //                 return Ok(current)
+    //             }
                 
-                else {
-                    if let Some(right) = current.right.as_deref_mut() {
-                        stack.push(right);
-                    }
+    //             else {
+    //                 if let Some(right) = current.right.as_deref_mut() {
+    //                     stack.push(right);
+    //                 }
                     
-                    if let Some(left) = current.left.as_deref_mut() {
-                        stack.push(left);
-                    }
-                }
-            }
-            else {
-                return Err(ParentError::ParentNodeNotFound)
-            }
-        }
-    }
+    //                 if let Some(left) = current.left.as_deref_mut() {
+    //                     stack.push(left);
+    //                 }
+    //             }
+    //         }
+    //         else {
+    //             return Err(ParentError::ParentNodeNotFound)
+    //         }
+    //     }
+    // }
  
-    fn _search<'a>(link: &'a mut Link<T>, key: &T) -> Option<&'a mut Node<T>> {
-
-        match link {
-            Some(node) => match key.cmp(&node.value) {
+    fn _search<'a>(mut link: &'a mut Link<T>, key: &T) -> &'a mut Link<T> {
+        loop {
+            // Immutable peek so we don't risk & and &mut overlapping
+            let step = match link.as_ref() {
+                None => SearchStep::Here,
                 
-                Ordering::Less => {
-                    if node.left.is_none() {
-                        return Some(node.as_mut())
+                Some(n) => {
+                    if key < &n.value {
+                        if n.left.is_none() { SearchStep::Here } else { SearchStep::Left }
                     } 
-                    else {
-                        Self::_search(&mut node.left, key)
-                    }
-                },
-                
-                Ordering::Greater => {
-                    if node.right.is_none() {
-                        return Some(node.as_mut())
-                    }
-                    else {
-                        Self::_search(&mut node.right, key)
-                    }
-                },
+                    
+                    else if key > &n.value {
+                        if n.right.is_none() { SearchStep::Here } else { SearchStep::Right }
+                    } 
+                    
+                    else { SearchStep::Here }
+                }
+            };
 
-                Ordering::Equal => Some(node.as_mut()),
-            },
-            None => None,
+            // mutable action
+            match step {
+                SearchStep::Here  => return link,
+                SearchStep::Left  => { let n = link.as_mut().unwrap(); link = &mut n.left;  }
+                SearchStep::Right => { let n = link.as_mut().unwrap(); link = &mut n.right; }
+            }
         }
     }
 }
 
 impl<T> Tree<T> for BinarySearchTree<T> {
     fn get_root(&self) -> Option<&Node<T>> {
-        Some(&self.root)
+        self.root.as_deref()
     }
+    
     fn get_mut_root(&mut self) -> Option<&mut Node<T>> {
-        Some(&mut self.root)
+        self.root.as_deref_mut()
     }
 }
 
 impl<T: Ord + Display> SearchTree<T> for BinarySearchTree<T> {
     
-    fn search<'a>(&'a mut self, node: &Node<T>) -> &'a mut Node<T> {
-        let key = &node.value;
-        
-        let result = match key.cmp(&self.root.value) {
-            Ordering::Equal => Some(&mut self.root),
-            
-            Ordering::Less => {
-                if self.root.left.is_none() {
-                    Some(&mut self.root)
-                } 
-                else {
-                   Self::_search(&mut self.root.left, key)
-                }
-            },
-            
-            Ordering::Greater => {
-                if self.root.right.is_none() {
-                    Some(&mut self.root)
-                }
-                else {
-                    Self::_search(&mut self.root.right, key)
-                }
-            },
-        };
-
-        result.unwrap()
+    fn search<'a>(&'a mut self, node: &Node<T>) -> &'a mut Link<T> {
+        Self::_search(&mut self.root, &node.value)
     }
     
     fn delete(&mut self, node: &Node<T>) {
 
+        let link = self.search(node);
+
+        match link {
+            Some(node) => {
+                if node.left.is_none() & node.right.is_none() {
+                    *link = None
+                }
+                else {
+                    panic!("Not implemented yet!")
+                }
+            },
+            None => println!("Failed to delete node: {}", node.value)
+        }
     }
 
     fn insert(&mut self, node: Node<T>) {
-        let parent: &mut Node<T> = self.search(&node);
+        let parent = self.search(&node);
+        
         {
-            println!("About to insert node under {}", &parent.value);
+            println!("About to insert node under {}", &parent.as_deref().unwrap().value);
         }
 
-        match node.value.cmp(&parent.value) {
-            Ordering::Equal => panic!("Parent and inserting node have identical values!"),
-            
-            Ordering::Less => {
-                let _left = match parent.assign_left(node.value) {
-                    Ok(node) => println!("Successfully created left node {}", node.value),
-                    Err(_) => panic!("Left node already exists!"),
-                };
+        match parent {
+            Some(n) => match node.value.cmp(&n.value) {
+                Ordering::Equal => panic!("Parent and inserting node have identical values!"),
+                
+                Ordering::Greater => {
+                    let _right = match n.assign_right(node.value) {
+                        Ok(node) => println!("Successfully created right node {}", node.value),
+                        Err(_) => panic!("Right node already exists!"),
+                    };
+                },
+                
+                Ordering::Less => {
+                    let _left = match n.assign_left(node.value) {
+                        Ok(node) => println!("Successfully created left node {}", node.value),
+                        Err(_) => panic!("Left node already exists!"),
+                    };
+                }
             },
-            
-            Ordering::Greater => {
-                let _right = match parent.assign_right(node.value) {
-                    Ok(node) => println!("Successfully created right node {}", node.value),
-                    Err(_) => panic!("Right node already exists!"),
-                };
-            },
+            None => ()
         }
     }
 }
@@ -168,13 +164,13 @@ pub fn example_bst() -> BinarySearchTree<i64> {
     let mut tree = BinarySearchTree::new(Node::new(4));
 
     {
-        let left = tree.root.assign_left(2).unwrap();
+        let left = tree.get_mut_root().unwrap().assign_left(2).unwrap();
         left.assign_left(1).unwrap();
         left.assign_right(3).unwrap();
     }
 
     {
-        let right = tree.root.assign_right(6).unwrap();
+        let right = tree.get_mut_root().unwrap().assign_right(6).unwrap();
         let _left = right.assign_left(5).unwrap();
         let right = right.assign_right(7).unwrap();
         right.assign_right(8).unwrap();

@@ -6,13 +6,13 @@ fn main() {
     
     {
         let search_result = tree.search(node_to_search);
-        println!("Result from search: {}", search_result.value);
+        println!("Result from search: {}", search_result.as_deref().unwrap().value);
     }
 
-    match tree.get_parent(node_to_search) {
-        Ok(node) => println!("Parent of searched node is {}", node.value),
-        Err(e) => println!("{:?}", e)
-    }
+    // match tree.get_parent(node_to_search) {
+    //     Ok(node) => println!("Parent of searched node is {}", node.value),
+    //     Err(e) => println!("{:?}", e)
+    // }
 
     tree.insert(bt::Node::new(0));
 
@@ -20,5 +20,14 @@ fn main() {
         Ok(v) => v.collect(),
         Err(_) => panic!("Failed to traverse the tree!")
     };
-    println!("Tree nodes after insert: {:?}", traversal_result);
+    println!("Tree nodes after insertion: {:?}", traversal_result);
+
+
+    tree.delete(&bt::Node::new(8));
+
+    let traversal_result: Vec<&i64> = match tree.inorder() {
+        Ok(v) => v.collect(),
+        Err(_) => panic!("Failed to traverse the tree!")
+    };
+    println!("Tree nodes after deletion: {:?}", traversal_result);
 }
