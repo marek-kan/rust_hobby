@@ -23,9 +23,9 @@ fn main() {
     println!("Tree nodes after insertion: {:?}", traversal_result);
 
 
-    tree.delete(&bt::Node::new(8)).unwrap_or_else(|e| println!("{:?} - Failed to delete", e));
+    tree.delete(&bt::Node::new(6)).unwrap_or_else(|e| println!("{:?} - Failed to delete", e));
 
-    let traversal_result: Vec<&i64> = match tree.inorder() {
+    let traversal_result: Vec<&i64> = match tree.preorder() {
         Ok(v) => v.collect(),
         Err(_) => panic!("Failed to traverse the tree!")
     };
