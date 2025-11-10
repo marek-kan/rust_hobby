@@ -14,7 +14,7 @@ fn main() {
     //     Err(e) => println!("{:?}", e)
     // }
 
-    tree.insert(bt::Node::new(0));
+    tree.insert(bt::Node::new(0)).unwrap_or_else(|e| println!("{:?} - Failed to insert", e));
 
     let traversal_result: Vec<&i64> = match tree.inorder() {
         Ok(v) => v.collect(),
@@ -23,7 +23,7 @@ fn main() {
     println!("Tree nodes after insertion: {:?}", traversal_result);
 
 
-    tree.delete(&bt::Node::new(8));
+    tree.delete(&bt::Node::new(8)).unwrap_or_else(|e| println!("{:?} - Failed to delete", e));
 
     let traversal_result: Vec<&i64> = match tree.inorder() {
         Ok(v) => v.collect(),

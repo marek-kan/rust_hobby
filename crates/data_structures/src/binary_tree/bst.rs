@@ -1,9 +1,31 @@
 use std::{cmp::Ordering, fmt::Display};
 
-use crate::binary_tree::bt::{Tree, Link, Node};
+use crate::binary_tree::bt::{Tree, Link, Node, AlreadyExists};
 
 #[derive(Debug)]
 pub enum ParentError { ParentNodeNotFound }
+
+
+#[derive(Debug)]
+pub enum InsertError {
+    LeftAlreadyExists,
+    RightAlreadyExists,
+    ParentHasSameValue,
+    ParentNotFound
+}
+
+impl From<AlreadyExists> for InsertError {
+    fn from(error: AlreadyExists) -> Self {
+        match error {
+            AlreadyExists::LeftTreeExists => InsertError::LeftAlreadyExists,
+            AlreadyExists::RightTreeExists => InsertError::RightAlreadyExists,
+        }
+    }    
+}
+
+
+#[derive(Debug)]
+pub enum DeleteError { FailedToDeleteNode }
 
 
 enum SearchStep { Left, Right, Here }
@@ -11,8 +33,8 @@ enum SearchStep { Left, Right, Here }
 
 pub trait SearchTree<T>: Tree<T> {
     fn search<'a>(&'a mut self, node: &Node<T>) -> &'a mut Link<T>;
-    fn insert(&mut self, node: Node<T>);
-    fn delete(&mut self, node: &Node<T>);
+    fn insert(&mut self, node: Node<T>) -> Result<(), InsertError>;
+    fn delete(&mut self, node: &Node<T>) -> Result<(), DeleteError>;
 }
 
 
@@ -20,7 +42,7 @@ pub struct BinarySearchTree<T> {
     pub root: Link<T>
 }
 
-impl<T: Ord + Display> BinarySearchTree<T> {
+impl<T: Ord > BinarySearchTree<T> {
 
     pub fn new(node: Node<T>) -> BinarySearchTree<T> {
         BinarySearchTree { root: Some(Box::new(node)) }
@@ -110,24 +132,26 @@ impl<T: Ord + Display> SearchTree<T> for BinarySearchTree<T> {
         Self::_search(&mut self.root, &node.value)
     }
     
-    fn delete(&mut self, node: &Node<T>) {
+    fn delete(&mut self, node: &Node<T>) -> Result<(), DeleteError> {
 
         let link = self.search(node);
 
         match link {
             Some(node) => {
                 if node.left.is_none() & node.right.is_none() {
-                    *link = None
+                    *link = None;
+                    Ok(())
                 }
                 else {
-                    panic!("Not implemented yet!")
+                    println!("Not implemented yet!");
+                    Err(DeleteError::FailedToDeleteNode)
                 }
             },
-            None => println!("Failed to delete node: {}", node.value)
+            None => Err(DeleteError::FailedToDeleteNode)
         }
     }
 
-    fn insert(&mut self, node: Node<T>) {
+    fn insert(&mut self, node: Node<T>) -> Result<(), InsertError> {
         let parent = self.search(&node);
         
         {
@@ -136,23 +160,20 @@ impl<T: Ord + Display> SearchTree<T> for BinarySearchTree<T> {
 
         match parent {
             Some(n) => match node.value.cmp(&n.value) {
-                Ordering::Equal => panic!("Parent and inserting node have identical values!"),
-                
+                Ordering::Equal => Err(InsertError::ParentHasSameValue),
+
                 Ordering::Greater => {
-                    let _right = match n.assign_right(node.value) {
-                        Ok(node) => println!("Successfully created right node {}", node.value),
-                        Err(_) => panic!("Right node already exists!"),
-                    };
-                },
-                
-                Ordering::Less => {
-                    let _left = match n.assign_left(node.value) {
-                        Ok(node) => println!("Successfully created left node {}", node.value),
-                        Err(_) => panic!("Left node already exists!"),
-                    };
+                    let _right: &mut Node<T> = n.assign_right(node.value)?;
+                    Ok(())
                 }
+
+                Ordering::Less => {
+                    let _left: &mut Node<T> = n.assign_left(node.value)?;
+                    Ok(())
+                }
+
             },
-            None => ()
+            None => Err(InsertError::ParentNotFound)
         }
     }
 }
