@@ -17,26 +17,6 @@ fn demo_single_node() {
     println!("=== End of Node Demo ===");
 }
 
-fn build_sample_tree() -> bt::BinaryTree<i64> {
-    let mut tree = bt::BinaryTree::new(bt::Node::new(1));
-
-    // left branch
-    {
-        let left = tree.root.assign_left(2).unwrap();
-        left.assign_left(3).unwrap();
-        left.assign_right(4).unwrap();
-    }
-
-    // right branch
-    {
-        let right = tree.root.assign_right(5).unwrap();
-        let right = right.assign_right(6).unwrap();
-        right.assign_right(7).unwrap();
-    }
-
-    tree
-}
-
 fn right_right_right(start: Option<&bt::Node<i64>>) -> Option<&bt::Node<i64>> {
     start
         .and_then(|n| n.right.as_deref())
@@ -58,7 +38,7 @@ fn demo_traversals(tree: &bt::BinaryTree<i64>) {
 fn main() {
     demo_single_node();
 
-    let bt = build_sample_tree();
+    let bt = bt::build_sample_tree();
 
     // Just printing some values from the tree
     println!("Height of the BinaryTree: {}", bt.root.height());

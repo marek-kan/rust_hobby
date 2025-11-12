@@ -180,7 +180,7 @@ impl<T: Ord + Display> SearchTree<T> for BinarySearchTree<T> {
     }
 }
 
-/// Builds sample BinarySearchTree for examples.
+/// Builds sample BinarySearchTree for examples. Shouldn't be run at any other context
 pub fn example_bst() -> BinarySearchTree<i64> {
     let mut tree = BinarySearchTree::new(Node::new(4));
 
