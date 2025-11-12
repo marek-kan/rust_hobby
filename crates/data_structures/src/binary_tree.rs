@@ -1,2 +1,2 @@
-pub mod bt;
 pub mod bst;
+pub mod bt;

@@ -1,0 +1,77 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug example 'run_bst'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--example=run_bst"
+                ]
+            },
+            "args": []
+        },
+    
+        {
+            "name": "Debug unit tests in library 'data_structures'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test"
+                ]
+            }
+        },
+        {
+            "name": "Debug example 'run_bst'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--example=run_bst"
+                ]
+            },
+            "args": []
+        },
+        {
+            "name": "Debug unit tests in example 'run_bst'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--example=run_bst"
+                ]
+            }
+        },
+        {
+            "name": "Debug example 'run_bt'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--example=run_bt"
+                ]
+            },
+            "args": []
+        },
+        {
+            "name": "Debug unit tests in example 'run_bt'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--example=run_bt"
+                ]
+            }
+        }
+    ]
+}
