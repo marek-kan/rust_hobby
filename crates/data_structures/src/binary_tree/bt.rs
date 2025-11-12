@@ -1,46 +1,55 @@
 pub type Link<T> = Option<Box<Node<T>>>;
 
-
 #[derive(Debug)]
 pub enum AlreadyExists {
     LeftTreeExists,
-    RightTreeExists
+    RightTreeExists,
 }
-
 
 #[derive(Debug)]
 pub enum DoesntExist {
     NoRootNode,
-    NoTargetNode
+    NoTargetNode,
 }
-
 
 pub struct Node<T> {
     pub value: T,
     pub left: Link<T>,
-    pub right: Link<T>
+    pub right: Link<T>,
 }
 
 impl<T> Node<T> {
     pub fn new(value: T) -> Node<T> {
-        Node{value: value, left: None, right: None}
+        Node {
+            value,
+            left: None,
+            right: None,
+        }
     }
 
     pub fn assign_left(&mut self, value: T) -> Result<&mut Node<T>, AlreadyExists> {
         if self.left.is_some() {
-            return Err(AlreadyExists::LeftTreeExists)
+            return Err(AlreadyExists::LeftTreeExists);
         }
 
-        self.left = Some(Box::new(Node { value: value, left: None, right: None }));
+        self.left = Some(Box::new(Node {
+            value,
+            left: None,
+            right: None,
+        }));
         Ok(self.left.as_mut().unwrap())
     }
 
     pub fn assign_right(&mut self, value: T) -> Result<&mut Node<T>, AlreadyExists> {
         if self.right.is_some() {
-            return Err(AlreadyExists::RightTreeExists)
+            return Err(AlreadyExists::RightTreeExists);
         }
 
-        self.right = Some(Box::new(Node { value: value, left: None, right: None }));
+        self.right = Some(Box::new(Node {
+            value,
+            left: None,
+            right: None,
+        }));
         Ok(self.right.as_mut().unwrap())
     }
 
@@ -52,7 +61,6 @@ impl<T> Node<T> {
     }
 }
 
-
 pub trait Tree<T> {
     fn get_root(&self) -> Option<&Node<T>>;
 
@@ -60,11 +68,17 @@ pub trait Tree<T> {
 
     fn _depth(&self, node: &Node<T>, target: &Node<T>, current_depth: usize) -> usize {
         if std::ptr::eq(node, target) {
-            return current_depth
+            return current_depth;
         }
 
-        let left_depth = node.left.as_ref().map_or(0, |n| self._depth(n, target, current_depth + 1));
-        let right_depth = node.right.as_ref().map_or(0, |n| self._depth(n, target, current_depth + 1));
+        let left_depth = node
+            .left
+            .as_ref()
+            .map_or(0, |n| self._depth(n, target, current_depth + 1));
+        let right_depth = node
+            .right
+            .as_ref()
+            .map_or(0, |n| self._depth(n, target, current_depth + 1));
 
         left_depth.max(right_depth)
     }
@@ -80,26 +94,23 @@ pub trait Tree<T> {
     }
 
     fn inorder(&self) -> Result<InOrder<'_, T>, DoesntExist> {
-
         match self.get_root() {
             Some(root) => Ok(InOrder::new(root)),
-            _ => Err(DoesntExist::NoRootNode)
-        }       
+            _ => Err(DoesntExist::NoRootNode),
+        }
     }
-    
-    fn preorder(&self) -> Result<PreOrder<'_, T>, DoesntExist> {
 
+    fn preorder(&self) -> Result<PreOrder<'_, T>, DoesntExist> {
         match self.get_root() {
             Some(root) => Ok(PreOrder::new(root)),
-            _ => Err(DoesntExist::NoRootNode)
-        }  
+            _ => Err(DoesntExist::NoRootNode),
+        }
     }
 
     fn postorder(&self) -> Result<PostOrderStraming<'_, T>, DoesntExist> {
-        
         match self.get_root() {
             Some(root) => Ok(PostOrderStraming::new(root)),
-            _ => Err(DoesntExist::NoRootNode)
+            _ => Err(DoesntExist::NoRootNode),
         }
     }
 
@@ -108,26 +119,28 @@ pub trait Tree<T> {
         // is prefered for most use-cases.
         match self.get_root() {
             Some(root) => Ok(PostOrderPreComputed::new(root)),
-            _ => Err(DoesntExist::NoRootNode)
+            _ => Err(DoesntExist::NoRootNode),
         }
     }
 }
 
-
 pub struct InOrder<'a, T> {
     stack: Vec<&'a Node<T>>,
-    current: Option<&'a Node<T>>
+    current: Option<&'a Node<T>>,
 }
 
 impl<'a, T> InOrder<'a, T> {
     fn new(root: &'a Node<T>) -> InOrder<'a, T> {
-        InOrder { stack: Vec::new(), current: Some(root) }
+        InOrder {
+            stack: Vec::new(),
+            current: Some(root),
+        }
     }
 }
 
 impl<'a, T> Iterator for InOrder<'a, T> {
     type Item = &'a T;
-    
+
     fn next(&mut self) -> Option<Self::Item> {
         // Dive left as far as possible
         while let Some(node) = self.current {
@@ -140,7 +153,6 @@ impl<'a, T> Iterator for InOrder<'a, T> {
         Some(&node.value)
     }
 }
-
 
 pub struct PreOrder<'a, T> {
     stack: Vec<&'a Node<T>>,
@@ -156,9 +168,8 @@ impl<'a, T> Iterator for PreOrder<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-
         let node = self.stack.pop()?;
-        
+
         if let Some(right) = node.right.as_deref() {
             self.stack.push(right);
         }
@@ -170,8 +181,7 @@ impl<'a, T> Iterator for PreOrder<'a, T> {
     }
 }
 
-
-pub struct PostOrderPreComputed <'a, T> {
+pub struct PostOrderPreComputed<'a, T> {
     stack: Vec<&'a Node<T>>,
 }
 
@@ -194,7 +204,7 @@ impl<'a, T> PostOrderPreComputed<'a, T> {
         }
 
         PostOrderPreComputed { stack: s2 }
-    }  
+    }
 }
 
 impl<'a, T> Iterator for PostOrderPreComputed<'a, T> {
@@ -205,16 +215,19 @@ impl<'a, T> Iterator for PostOrderPreComputed<'a, T> {
     }
 }
 
-
 pub struct PostOrderStraming<'a, T> {
     current: Option<&'a Node<T>>,
     stack: Vec<&'a Node<T>>,
-    last_visited: Option<&'a Node<T>>
+    last_visited: Option<&'a Node<T>>,
 }
 
 impl<'a, T> PostOrderStraming<'a, T> {
     pub fn new(root: &'a Node<T>) -> PostOrderStraming<'a, T> {
-        PostOrderStraming { current: Some(root), stack: Vec::new(), last_visited: None }
+        PostOrderStraming {
+            current: Some(root),
+            stack: Vec::new(),
+            last_visited: None,
+        }
     }
 }
 
@@ -222,10 +235,8 @@ impl<'a, T> Iterator for PostOrderStraming<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-
         loop {
             while let Some(node) = self.current {
-                
                 self.stack.push(node);
                 self.current = node.left.as_deref();
             }
@@ -234,9 +245,9 @@ impl<'a, T> Iterator for PostOrderStraming<'a, T> {
 
             if let Some(node) = top {
                 if let Some(right) = node.right.as_deref() {
-                    
-                    let visited_right = matches!(self.last_visited, Some(v) if std::ptr::eq(v, right));
-                    
+                    let visited_right =
+                        matches!(self.last_visited, Some(v) if std::ptr::eq(v, right));
+
                     if !visited_right {
                         self.current = Some(right);
                         continue;
@@ -246,18 +257,17 @@ impl<'a, T> Iterator for PostOrderStraming<'a, T> {
 
             let node = self.stack.pop()?;
             self.last_visited = Some(node);
-            
-            return Some(&node.value)
+
+            return Some(&node.value);
         }
     }
 }
 
-
 pub struct BinaryTree<T> {
-    pub root: Node<T>
+    pub root: Node<T>,
 }
 
-impl <T> BinaryTree<T> {
+impl<T> BinaryTree<T> {
     pub fn new(node: Node<T>) -> BinaryTree<T> {
         BinaryTree { root: node }
     }
