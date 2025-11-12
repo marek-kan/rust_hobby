@@ -180,22 +180,86 @@ impl<T: Ord + Display> SearchTree<T> for BinarySearchTree<T> {
     }
 }
 
-/// Builds sample BinarySearchTree for examples. Shouldn't be run at any other context
-pub fn example_bst() -> BinarySearchTree<i64> {
+/// Builds sample BinarySearchTree for examples/tests. Shouldn't be run at any other context
+pub fn build_sample_tree() -> BinarySearchTree<i64> {
     let mut tree = BinarySearchTree::new(Node::new(4));
 
     {
-        let left = tree.get_mut_root().unwrap().assign_left(2).unwrap();
-        left.assign_left(1).unwrap();
-        left.assign_right(3).unwrap();
+        let left = tree
+            .get_mut_root()
+            .expect("No root!")
+            .assign_left(2)
+            .expect("Failed to assign node");
+        left.assign_left(1).expect("Failed to assign node");
+        left.assign_right(3).expect("Failed to assign node");
     }
 
     {
-        let right = tree.get_mut_root().unwrap().assign_right(6).unwrap();
-        let _left = right.assign_left(5).unwrap();
-        let right = right.assign_right(7).unwrap();
-        right.assign_right(8).unwrap();
+        let right = tree
+            .get_mut_root()
+            .expect("No root!")
+            .assign_right(6)
+            .expect("Failed to assign node");
+        let _left = right.assign_left(5).expect("Failed to assign node");
+        let right = right.assign_right(7).expect("Failed to assign node");
+        right.assign_right(8).expect("Failed to assign node");
     }
 
     tree
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn find_3() {
+        let mut tree = build_sample_tree();
+        let result = tree.search(&Node::new(3)).as_ref().expect("Search failed");
+
+        assert_eq!(result.value, 3);
+    }
+
+    #[test]
+    fn find_100() {
+        let mut tree = build_sample_tree();
+        let result = tree
+            .search(&Node::new(100))
+            .as_ref()
+            .expect("Search failed");
+
+        assert_eq!(result.value, 8);
+    }
+
+    #[test]
+    fn inorder_after_insert_0() {
+        let mut tree = build_sample_tree();
+
+        tree.insert(Node::new(0)).expect("insert(0)");
+
+        let got: Vec<i64> = tree.inorder().expect("inorder").copied().collect();
+
+        assert_eq!(got, vec![0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    }
+
+    #[test]
+    fn preorder_after_delete_6() {
+        let mut tree = build_sample_tree();
+
+        tree.delete(&Node::new(6)).expect("delete(6)");
+
+        let got: Vec<i64> = tree.preorder().expect("preorder").copied().collect();
+
+        assert_eq!(got, vec![4, 2, 1, 3, 7, 5, 8]);
+    }
+
+    #[test]
+    fn inorder_after_delete_6_is_sorted_without_6() {
+        let mut tree = build_sample_tree();
+        tree.delete(&Node::new(6)).expect("delete(6)");
+
+        let got: Vec<i64> = tree.inorder().expect("inorder").copied().collect();
+
+        assert_eq!(got, vec![1, 2, 3, 4, 5, 7, 8]);
+    }
 }

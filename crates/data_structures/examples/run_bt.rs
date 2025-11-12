@@ -1,7 +1,7 @@
 use data_structures::binary_tree::bt::{self, Tree};
 
 fn demo_single_node() {
-    println!("=== Node Demo ===");
+    println!("=== Node demo ===");
     let mut root = bt::Node::new(1);
     root.left = Some(Box::new(bt::Node::new(2)));
 
@@ -14,7 +14,7 @@ fn demo_single_node() {
     }
 
     println!("height(root) = {}", root.height());
-    println!("=== End of Node Demo ===");
+    println!("=== End of Node demo ===");
 }
 
 fn right_right_right(start: Option<&bt::Node<i64>>) -> Option<&bt::Node<i64>> {
@@ -25,13 +25,13 @@ fn right_right_right(start: Option<&bt::Node<i64>>) -> Option<&bt::Node<i64>> {
 }
 
 fn demo_traversals(tree: &bt::BinaryTree<i64>) {
-    println!("=== Tree Traversals ===");
+    println!("=== Tree traversals ===");
     let inorder_vals: Vec<&i64> = tree.inorder().unwrap().collect();
     let preorder_vals: Vec<&i64> = tree.preorder().unwrap().collect();
     let postorder_vals: Vec<&i64> = tree.postorder().unwrap().collect();
 
-    println!("In-order:   {:?}", inorder_vals);
-    println!("Pre-order:  {:?}", preorder_vals);
+    println!("In-order: {:?}", inorder_vals);
+    println!("Pre-order: {:?}", preorder_vals);
     println!("Post-order: {:?}", postorder_vals);
 }
 
