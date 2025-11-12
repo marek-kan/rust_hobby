@@ -8,3 +8,4 @@ edition.workspace = true
 workspace = true
 
 [dependencies]
+log = "0.4.28"

@@ -1,3 +1,4 @@
+use log::info;
 use std::{cmp::Ordering, fmt::Display};
 
 use crate::binary_tree::bt::{AlreadyExists, Link, Node, Tree};
@@ -157,7 +158,7 @@ impl<T: Ord + Display> SearchTree<T> for BinarySearchTree<T> {
         let parent = self.search(&node);
 
         if let Some(p) = parent.as_ref() {
-            println!("About to insert node under {}", p.value);
+            info!("About to insert node under {}", p.value);
         }
 
         match parent {
