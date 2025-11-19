@@ -32,11 +32,8 @@ impl<T> Node<T> {
             return Err(AlreadyExists::LeftTreeExists);
         }
 
-        self.left = Some(Box::new(Node {
-            value,
-            left: None,
-            right: None,
-        }));
+        self.left = Some(Box::new(Node::new(value)));
+
         Ok(self.left.as_mut().unwrap())
     }
 
@@ -45,11 +42,8 @@ impl<T> Node<T> {
             return Err(AlreadyExists::RightTreeExists);
         }
 
-        self.right = Some(Box::new(Node {
-            value,
-            left: None,
-            right: None,
-        }));
+        self.right = Some(Box::new(Node::new(value)));
+
         Ok(self.right.as_mut().unwrap())
     }
 
