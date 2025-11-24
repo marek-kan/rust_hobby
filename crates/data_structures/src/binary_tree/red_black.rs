@@ -1,7 +1,7 @@
 // Refactor to some common abstraction with BT and BST?
 
-use crate::binary_tree::bst::{DeleteError, InsertError, ParentError, SearchTree};
-use crate::binary_tree::bt::{AlreadyExists, Tree};
+// use crate::binary_tree::bst::{DeleteError, InsertError, ParentError, SearchTree};
+// use crate::binary_tree::bt::{AlreadyExists, Tree};
 
 pub enum Color {
     Red,
@@ -10,7 +10,7 @@ pub enum Color {
 
 pub type RBLink<T> = Option<Box<RBNode<T>>>;
 
-struct RBNode<T> {
+pub struct RBNode<T> {
     pub value: T,
     pub left: RBLink<T>,
     pub right: RBLink<T>,
@@ -25,45 +25,49 @@ impl<T> RBNode<T> {
             value,
             left: None,
             right: None,
-            color: color,
-            parent: parent,
+            color,
+            parent,
         }
     }
 
-    fn assign_left(&mut self, value: T) -> Result<&mut RBNode<T>, AlreadyExists> {
-        if self.left.is_some() {
-            return Err(AlreadyExists::LeftTreeExists);
-        }
+    // fn assign_left(&mut self, value: T, color: Color) -> Result<&mut RBNode<T>, AlreadyExists> {
+    //     if self.left.is_some() {
+    //         return Err(AlreadyExists::LeftTreeExists);
+    //     }
 
-        self.left = Some(Box::new(RBNode {
-            value,
-            left: None,
-            right: None,
-            color: Color::Red,
-            parent: None,
-        }));
-        Ok(self.left.as_mut().unwrap())
-    }
+    //     self.left = Some(Box::new(RBNode::new(value, color, None)));
+    //     Ok(self.left.as_mut().unwrap())
+    // }
 
-    fn assign_right(&mut self, value: T) -> Result<&mut RBNode<T>, AlreadyExists> {
-        if self.right.is_some() {
-            return Err(AlreadyExists::RightTreeExists);
-        }
+    // fn assign_right(&mut self, value: T) -> Result<&mut RBNode<T>, AlreadyExists> {
+    //     if self.right.is_some() {
+    //         return Err(AlreadyExists::RightTreeExists);
+    //     }
 
-        self.right = Some(Box::new(RBNode {
-            value,
-            left: None,
-            right: None,
-            color: Color::Red,
-            parent: None,
-        }));
-        Ok(self.right.as_mut().unwrap())
-    }
+    //     self.right = Some(Box::new(RBNode {
+    //         value,
+    //         left: None,
+    //         right: None,
+    //         color: Color::Red,
+    //         parent: None,
+    //     }));
+    //     Ok(self.right.as_mut().unwrap())
+    // }
 
-    pub fn height(&self) -> usize {
-        let left_height = self.left.as_ref().map_or(0, |node| node.height() + 1);
-        let right_height = self.right.as_ref().map_or(0, |node| node.height() + 1);
+    // pub fn height(&self) -> usize {
+    //     let left_height = self.left.as_ref().map_or(0, |node| node.height() + 1);
+    //     let right_height = self.right.as_ref().map_or(0, |node| node.height() + 1);
 
-        left_height.max(right_height)
+    //     left_height.max(right_height)
+    // }
+}
+
+pub struct RedBlackTree<T> {
+    root: RBLink<T>,
+}
+
+impl<T> RedBlackTree<T> {
+    pub fn add_root(&mut self, value: T) {
+        self.root = Some(Box::new(RBNode::new(value, Color::Black, None)))
     }
 }

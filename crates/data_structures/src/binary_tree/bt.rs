@@ -237,8 +237,7 @@ impl<'a, T> Iterator for PostOrderStraming<'a, T> {
 
             let top = self.stack.last().copied();
 
-            if let Some(node) = top {
-                if let Some(right) = node.right.as_deref() {
+            if let Some(node) = top && let Some(right) = node.right.as_deref() {
                     let visited_right =
                         matches!(self.last_visited, Some(v) if std::ptr::eq(v, right));
 
@@ -246,7 +245,6 @@ impl<'a, T> Iterator for PostOrderStraming<'a, T> {
                         self.current = Some(right);
                         continue;
                     }
-                }
             };
 
             let node = self.stack.pop()?;
