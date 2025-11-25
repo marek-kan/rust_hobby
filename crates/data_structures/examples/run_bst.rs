@@ -1,7 +1,4 @@
-use data_structures::binary_tree::{
-    bst::{self, SearchTree},
-    bt::{self, Tree},
-};
+use data_structures::binary_tree::{bst, bt, trees::SearchTree, trees::Tree};
 
 fn main() {
     let mut tree = bst::build_sample_tree();

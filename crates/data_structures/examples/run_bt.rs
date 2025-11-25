@@ -1,4 +1,4 @@
-use data_structures::binary_tree::bt::{self, Tree};
+use data_structures::binary_tree::{bt, nodes::BasicNode, trees::Tree};
 
 fn demo_single_node() {
     println!("=== Node demo ===");

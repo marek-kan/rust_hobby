@@ -1,6 +1,6 @@
-use crate::binary_tree::errors::DoesntExist;
+use crate::binary_tree::errors::{DeleteError, DoesntExist, InsertError};
 use crate::binary_tree::iterators::*;
-use crate::binary_tree::nodes::BasicNode;
+use crate::binary_tree::nodes::{BasicNode, Link};
 
 pub trait Tree {
     type Node: BasicNode;
@@ -63,4 +63,10 @@ pub trait Tree {
             _ => Err(DoesntExist::NoRootNode),
         }
     }
+}
+
+pub trait SearchTree: Tree {
+    fn search<'a>(&'a mut self, node: &<Self as Tree>::Node) -> &'a mut Link<<Self as Tree>::Node>;
+    fn insert(&mut self, node: <Self as Tree>::Node) -> Result<(), InsertError>;
+    fn delete(&mut self, node: &<Self as Tree>::Node) -> Result<(), DeleteError>;
 }

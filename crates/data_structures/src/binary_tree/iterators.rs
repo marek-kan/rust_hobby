@@ -1,6 +1,5 @@
 use crate::binary_tree::nodes::BasicNode;
 
-
 pub struct InOrder<'a, Node: BasicNode> {
     stack: Vec<&'a Node>,
     current: Option<&'a Node>,
@@ -120,14 +119,15 @@ impl<'a, Node: BasicNode> Iterator for PostOrderStraming<'a, Node> {
 
             let top = self.stack.last().copied();
 
-            if let Some(node) = top && let Some(right) = node.right() {
-                    let visited_right =
-                        matches!(self.last_visited, Some(v) if std::ptr::eq(v, right));
+            if let Some(node) = top
+                && let Some(right) = node.right()
+            {
+                let visited_right = matches!(self.last_visited, Some(v) if std::ptr::eq(v, right));
 
-                    if !visited_right {
-                        self.current = Some(right);
-                        continue;
-                    }
+                if !visited_right {
+                    self.current = Some(right);
+                    continue;
+                }
             };
 
             let node = self.stack.pop()?;

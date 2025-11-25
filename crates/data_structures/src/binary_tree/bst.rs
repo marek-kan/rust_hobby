@@ -1,34 +1,10 @@
 use log::info;
 use std::{cmp::Ordering, fmt::Display};
 
-use crate::binary_tree::bt::{AlreadyExists, Link, Node, Tree};
-
-#[derive(Debug)]
-pub enum ParentError {
-    ParentNodeNotFound,
-}
-
-#[derive(Debug)]
-pub enum InsertError {
-    LeftAlreadyExists,
-    RightAlreadyExists,
-    ParentHasSameValue,
-    ParentNotFound,
-}
-
-impl From<AlreadyExists> for InsertError {
-    fn from(error: AlreadyExists) -> Self {
-        match error {
-            AlreadyExists::LeftTreeExists => InsertError::LeftAlreadyExists,
-            AlreadyExists::RightTreeExists => InsertError::RightAlreadyExists,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum DeleteError {
-    FailedToDeleteNode,
-}
+use crate::binary_tree::bt::Node;
+use crate::binary_tree::errors::{DeleteError, InsertError};
+use crate::binary_tree::nodes::{BasicNode, Link};
+use crate::binary_tree::trees::{SearchTree, Tree};
 
 enum SearchStep {
     Left,
@@ -36,14 +12,20 @@ enum SearchStep {
     Here,
 }
 
-pub trait SearchTree<T>: Tree<T> {
-    fn search<'a>(&'a mut self, node: &Node<T>) -> &'a mut Link<T>;
-    fn insert(&mut self, node: Node<T>) -> Result<(), InsertError>;
-    fn delete(&mut self, node: &Node<T>) -> Result<(), DeleteError>;
+pub struct BinarySearchTree<T> {
+    pub root: Link<Node<T>>,
 }
 
-pub struct BinarySearchTree<T> {
-    pub root: Link<T>,
+impl<T> Tree for BinarySearchTree<T> {
+    type Node = Node<T>;
+
+    fn get_root(&self) -> Option<&Self::Node> {
+        self.root.as_deref()
+    }
+
+    fn get_mut_root(&mut self) -> Option<&mut Node<T>> {
+        self.root.as_deref_mut()
+    }
 }
 
 impl<T: Ord> BinarySearchTree<T> {
@@ -53,21 +35,21 @@ impl<T: Ord> BinarySearchTree<T> {
         }
     }
 
-    fn _search<'a>(mut link: &'a mut Link<T>, key: &T) -> &'a mut Link<T> {
+    fn _search<'a>(mut link: &'a mut Link<Node<T>>, key: &T) -> &'a mut Link<Node<T>> {
         loop {
             // Immutable peek so we don't risk & and &mut overlapping
             let step = match link.as_ref() {
                 None => SearchStep::Here,
 
                 Some(n) => {
-                    if key < &n.value {
-                        if n.left.is_none() {
+                    if key < n.value() {
+                        if n.left().is_none() {
                             SearchStep::Here
                         } else {
                             SearchStep::Left
                         }
-                    } else if key > &n.value {
-                        if n.right.is_none() {
+                    } else if key > n.value() {
+                        if n.right().is_none() {
                             SearchStep::Here
                         } else {
                             SearchStep::Right
@@ -94,19 +76,9 @@ impl<T: Ord> BinarySearchTree<T> {
     }
 }
 
-impl<T> Tree<T> for BinarySearchTree<T> {
-    fn get_root(&self) -> Option<&Node<T>> {
-        self.root.as_deref()
-    }
-
-    fn get_mut_root(&mut self) -> Option<&mut Node<T>> {
-        self.root.as_deref_mut()
-    }
-}
-
-impl<T: Ord + Display> SearchTree<T> for BinarySearchTree<T> {
-    fn search<'a>(&'a mut self, node: &Node<T>) -> &'a mut Link<T> {
-        Self::_search(&mut self.root, &node.value)
+impl<T: Ord + Display> SearchTree for BinarySearchTree<T> {
+    fn search<'a>(&'a mut self, node: &Node<T>) -> &'a mut Link<Node<T>> {
+        Self::_search(&mut self.root, node.value())
     }
 
     fn delete(&mut self, node: &Node<T>) -> Result<(), DeleteError> {
@@ -114,7 +86,7 @@ impl<T: Ord + Display> SearchTree<T> for BinarySearchTree<T> {
 
         match link {
             Some(node) => {
-                let leaf_states = (node.left.is_none(), node.right.is_none());
+                let leaf_states = (node.left().is_none(), node.right().is_none());
 
                 match leaf_states {
                     (true, true) => {
@@ -158,11 +130,11 @@ impl<T: Ord + Display> SearchTree<T> for BinarySearchTree<T> {
         let parent = self.search(&node);
 
         if let Some(p) = parent.as_ref() {
-            info!("About to insert node under {}", p.value);
+            info!("About to insert node under {}", p.value());
         }
 
         match parent {
-            Some(n) => match node.value.cmp(&n.value) {
+            Some(n) => match node.value().cmp(n.value()) {
                 Ordering::Equal => Err(InsertError::ParentHasSameValue),
 
                 Ordering::Greater => {
