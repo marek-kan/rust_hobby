@@ -25,8 +25,7 @@ pub trait Tree {
     }
 
     fn depth(&self, target: &Self::Node) -> Option<usize> {
-        self.get_root()
-            .and_then(|root| Some(self._depth(root, target, 0)))
+        self.get_root().map(|root| self._depth(root, target, 0))
     }
 
     fn inorder(&self) -> Result<InOrder<'_, Self::Node>, DoesntExist> {
