@@ -61,7 +61,9 @@ pub trait Tree {
 }
 
 pub trait SearchTree: Tree {
-    fn search<'a>(&'a mut self, node: &<Self as Tree>::Node) -> &'a mut Link<<Self as Tree>::Node>;
-    fn insert(&mut self, node: <Self as Tree>::Node) -> Result<(), InsertError>;
-    fn delete(&mut self, node: &<Self as Tree>::Node) -> Result<(), DeleteError>;
+    type Value: Ord;
+
+    fn search<'a>(&'a mut self, value: &Self::Value) -> &'a mut Link<<Self as Tree>::Node>;
+    fn insert(&mut self, value: Self::Value) -> Result<(), InsertError>;
+    fn delete(&mut self, value: &Self::Value) -> Result<(), DeleteError>;
 }

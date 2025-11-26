@@ -76,12 +76,14 @@ impl<T: Ord> BinarySearchTree<T> {
 }
 
 impl<T: Ord + Display> SearchTree for BinarySearchTree<T> {
-    fn search<'a>(&'a mut self, node: &Node<T>) -> &'a mut Link<Node<T>> {
-        Self::_search(&mut self.root, node.value())
+    type Value = T;
+
+    fn search<'a>(&'a mut self, value: &T) -> &'a mut Link<Node<T>> {
+        Self::_search(&mut self.root, value)
     }
 
-    fn delete(&mut self, node: &Node<T>) -> Result<(), DeleteError> {
-        let link = self.search(node);
+    fn delete(&mut self, value: &T) -> Result<(), DeleteError> {
+        let link = self.search(value);
 
         match link {
             Some(node) => {
@@ -125,24 +127,24 @@ impl<T: Ord + Display> SearchTree for BinarySearchTree<T> {
         }
     }
 
-    fn insert(&mut self, node: Node<T>) -> Result<(), InsertError> {
-        let parent = self.search(&node);
+    fn insert(&mut self, value: T) -> Result<(), InsertError> {
+        let parent = self.search(&value);
 
         if let Some(p) = parent.as_ref() {
             info!("About to insert node under {}", p.value());
         }
 
         match parent {
-            Some(n) => match node.value().cmp(n.value()) {
+            Some(n) => match value.cmp(n.value()) {
                 Ordering::Equal => Err(InsertError::ParentHasSameValue),
 
                 Ordering::Greater => {
-                    let _right: &mut Node<T> = n.assign_right(node.value)?;
+                    let _right: &mut Node<T> = n.assign_right(value)?;
                     Ok(())
                 }
 
                 Ordering::Less => {
-                    let _left: &mut Node<T> = n.assign_left(node.value)?;
+                    let _left: &mut Node<T> = n.assign_left(value)?;
                     Ok(())
                 }
             },
@@ -186,7 +188,7 @@ mod tests {
     #[test]
     fn find_3() {
         let mut tree = build_sample_tree();
-        let result = tree.search(&Node::new(3)).as_ref().expect("Search failed");
+        let result = tree.search(&3).as_ref().expect("Search failed");
 
         assert_eq!(result.value, 3);
     }
@@ -194,10 +196,7 @@ mod tests {
     #[test]
     fn find_100() {
         let mut tree = build_sample_tree();
-        let result = tree
-            .search(&Node::new(100))
-            .as_ref()
-            .expect("Search failed");
+        let result = tree.search(&100).as_ref().expect("Search failed");
 
         assert_eq!(result.value, 8);
     }
@@ -206,7 +205,7 @@ mod tests {
     fn inorder_after_insert_0() {
         let mut tree = build_sample_tree();
 
-        tree.insert(Node::new(0)).expect("insert(0)");
+        tree.insert(0).expect("insert(0)");
 
         let got: Vec<i64> = tree.inorder().expect("inorder").copied().collect();
 
@@ -217,7 +216,7 @@ mod tests {
     fn preorder_after_delete_6() {
         let mut tree = build_sample_tree();
 
-        tree.delete(&Node::new(6)).expect("delete(6)");
+        tree.delete(&6).expect("delete(6)");
 
         let got: Vec<i64> = tree.preorder().expect("preorder").copied().collect();
 
@@ -227,7 +226,7 @@ mod tests {
     #[test]
     fn inorder_after_delete_6_is_sorted_without_6() {
         let mut tree = build_sample_tree();
-        tree.delete(&Node::new(6)).expect("delete(6)");
+        tree.delete(&6).expect("delete(6)");
 
         let got: Vec<i64> = tree.inorder().expect("inorder").copied().collect();
 

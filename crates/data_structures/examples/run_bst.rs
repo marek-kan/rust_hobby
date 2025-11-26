@@ -1,8 +1,8 @@
-use data_structures::binary_tree::{bst, nodes::Node, trees::SearchTree, trees::Tree};
+use data_structures::binary_tree::{bst, trees::SearchTree, trees::Tree};
 
 fn main() {
     let mut tree = bst::build_sample_tree();
-    let node_to_search = &Node::new(3);
+    let node_to_search = &3;
 
     println!("=== Search demo ===");
     {
@@ -16,7 +16,7 @@ fn main() {
 
     println!("=== Insert demo ===");
 
-    tree.insert(Node::new(0))
+    tree.insert(0)
         .unwrap_or_else(|e| println!("{:?} - Failed to insert", e));
 
     let traversal_result: Vec<&i64> = match tree.inorder() {
@@ -29,7 +29,7 @@ fn main() {
 
     println!("=== Delete demo ===");
 
-    tree.delete(&Node::new(6))
+    tree.delete(&6)
         .unwrap_or_else(|e| println!("{:?} - Failed to delete", e));
 
     let traversal_result: Vec<&i64> = match tree.preorder() {
