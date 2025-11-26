@@ -1,69 +1,13 @@
-// Refactor to some common abstraction with BT and BST?
+use log::info;
+use std::{cmp::Ordering, fmt::Display};
 
-// use crate::binary_tree::bst::{DeleteError, InsertError, ParentError, SearchTree};
-// use crate::binary_tree::bt::{AlreadyExists, Tree};
-
-pub enum Color {
-    Red,
-    Black,
-}
-
-pub type RBLink<T> = Option<Box<RBNode<T>>>;
-
-pub struct RBNode<T> {
-    pub value: T,
-    pub left: RBLink<T>,
-    pub right: RBLink<T>,
-    pub parent: RBLink<T>,
-    pub color: Color,
-}
-
-impl<T> RBNode<T> {
-    // basically just RBTree should create RBNode because it needs parent link and decide on color
-    fn new(value: T, color: Color, parent: RBLink<T>) -> RBNode<T> {
-        RBNode {
-            value,
-            left: None,
-            right: None,
-            color,
-            parent,
-        }
-    }
-
-    // fn assign_left(&mut self, value: T, color: Color) -> Result<&mut RBNode<T>, AlreadyExists> {
-    //     if self.left.is_some() {
-    //         return Err(AlreadyExists::LeftTreeExists);
-    //     }
-
-    //     self.left = Some(Box::new(RBNode::new(value, color, None)));
-    //     Ok(self.left.as_mut().unwrap())
-    // }
-
-    // fn assign_right(&mut self, value: T) -> Result<&mut RBNode<T>, AlreadyExists> {
-    //     if self.right.is_some() {
-    //         return Err(AlreadyExists::RightTreeExists);
-    //     }
-
-    //     self.right = Some(Box::new(RBNode {
-    //         value,
-    //         left: None,
-    //         right: None,
-    //         color: Color::Red,
-    //         parent: None,
-    //     }));
-    //     Ok(self.right.as_mut().unwrap())
-    // }
-
-    // pub fn height(&self) -> usize {
-    //     let left_height = self.left.as_ref().map_or(0, |node| node.height() + 1);
-    //     let right_height = self.right.as_ref().map_or(0, |node| node.height() + 1);
-
-    //     left_height.max(right_height)
-    // }
-}
+use crate::binary_tree::errors::{DeleteError, InsertError};
+use crate::binary_tree::nodes::Node;
+use crate::binary_tree::nodes::{BasicNode, Color, Link, RBNode};
+use crate::binary_tree::trees::{SearchTree, Tree};
 
 pub struct RedBlackTree<T> {
-    root: RBLink<T>,
+    root: Link<RBNode<T>>,
 }
 
 impl<T> RedBlackTree<T> {

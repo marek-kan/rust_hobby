@@ -91,15 +91,15 @@ impl<'a, Node: BasicNode> Iterator for PostOrderPreComputed<'a, Node> {
     }
 }
 
-pub struct PostOrderStraming<'a, Node: BasicNode> {
+pub struct PostOrderStreaming<'a, Node: BasicNode> {
     current: Option<&'a Node>,
     stack: Vec<&'a Node>,
     last_visited: Option<&'a Node>,
 }
 
-impl<'a, Node: BasicNode> PostOrderStraming<'a, Node> {
-    pub fn new(root: &'a Node) -> PostOrderStraming<'a, Node> {
-        PostOrderStraming {
+impl<'a, Node: BasicNode> PostOrderStreaming<'a, Node> {
+    pub fn new(root: &'a Node) -> PostOrderStreaming<'a, Node> {
+        PostOrderStreaming {
             current: Some(root),
             stack: Vec::new(),
             last_visited: None,
@@ -107,7 +107,7 @@ impl<'a, Node: BasicNode> PostOrderStraming<'a, Node> {
     }
 }
 
-impl<'a, Node: BasicNode> Iterator for PostOrderStraming<'a, Node> {
+impl<'a, Node: BasicNode> Iterator for PostOrderStreaming<'a, Node> {
     type Item = &'a <Node as BasicNode>::V;
 
     fn next(&mut self) -> Option<Self::Item> {

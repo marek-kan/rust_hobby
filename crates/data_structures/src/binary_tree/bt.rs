@@ -1,59 +1,5 @@
-use crate::binary_tree::errors::AlreadyExists;
-use crate::binary_tree::nodes::{BasicNode, Link};
+use crate::binary_tree::nodes::Node;
 use crate::binary_tree::trees::Tree;
-
-pub struct Node<T> {
-    pub value: T,
-    pub left: Link<Node<T>>,
-    pub right: Link<Node<T>>,
-}
-
-impl<T> Node<T> {
-    pub fn new(value: T) -> Node<T> {
-        Node {
-            value,
-            left: None,
-            right: None,
-        }
-    }
-}
-
-impl<T> BasicNode for Node<T> {
-    type N = Node<T>;
-    type V = T;
-
-    fn assign_left(&mut self, value: Self::V) -> Result<&mut Self::N, AlreadyExists> {
-        if self.left.is_some() {
-            return Err(AlreadyExists::LeftTreeExists);
-        }
-
-        self.left = Some(Box::new(Node::new(value)));
-
-        Ok(self.left.as_mut().unwrap())
-    }
-
-    fn assign_right(&mut self, value: Self::V) -> Result<&mut Self::N, AlreadyExists> {
-        if self.right.is_some() {
-            return Err(AlreadyExists::LeftTreeExists);
-        }
-
-        self.right = Some(Box::new(Node::new(value)));
-
-        Ok(self.right.as_mut().unwrap())
-    }
-
-    fn left(&self) -> Option<&Self> {
-        self.left.as_deref()
-    }
-
-    fn right(&self) -> Option<&Self> {
-        self.right.as_deref()
-    }
-
-    fn value(&self) -> &Self::V {
-        &self.value
-    }
-}
 
 pub struct BinaryTree<T> {
     pub root: Node<T>,
@@ -100,6 +46,8 @@ pub fn build_sample_tree() -> BinaryTree<i64> {
 
 #[cfg(test)]
 mod tests {
+    use crate::binary_tree::nodes::BasicNode;
+
     use super::*;
 
     fn build_simple_tree() -> BinaryTree<i64> {
@@ -121,7 +69,7 @@ mod tests {
     fn root_depth() {
         let tree = build_sample_tree();
         let root = tree.get_root().expect("root exists");
-        assert_eq!(tree.depth(root), 0);
+        assert_eq!(tree.depth(root).unwrap(), 0);
     }
 
     #[test]
@@ -141,7 +89,7 @@ mod tests {
             .and_then(|n| n.left.as_deref())
             .expect("Failed to retrieve second left node");
 
-        let depth = tree.depth(second_left);
+        let depth = tree.depth(second_left).unwrap();
 
         assert_eq!(second_left.value, 3);
         assert_eq!(depth, 2);

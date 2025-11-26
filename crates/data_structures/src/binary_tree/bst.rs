@@ -1,9 +1,8 @@
 use log::info;
 use std::{cmp::Ordering, fmt::Display};
 
-use crate::binary_tree::bt::Node;
 use crate::binary_tree::errors::{DeleteError, InsertError};
-use crate::binary_tree::nodes::{BasicNode, Link};
+use crate::binary_tree::nodes::{BasicNode, Link, Node};
 use crate::binary_tree::trees::{SearchTree, Tree};
 
 enum SearchStep {

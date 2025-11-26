@@ -24,14 +24,9 @@ pub trait Tree {
         left_depth.max(right_depth)
     }
 
-    fn depth(&self, target: &Self::Node) -> usize {
-        match self.get_root() {
-            Some(root) => self._depth(root, target, 0),
-            _ => {
-                println!("No root node!");
-                0
-            }
-        }
+    fn depth(&self, target: &Self::Node) -> Option<usize> {
+        self.get_root()
+            .and_then(|root| Some(self._depth(root, target, 0)))
     }
 
     fn inorder(&self) -> Result<InOrder<'_, Self::Node>, DoesntExist> {
@@ -48,9 +43,9 @@ pub trait Tree {
         }
     }
 
-    fn postorder(&self) -> Result<PostOrderStraming<'_, Self::Node>, DoesntExist> {
+    fn postorder(&self) -> Result<PostOrderStreaming<'_, Self::Node>, DoesntExist> {
         match self.get_root() {
-            Some(root) => Ok(PostOrderStraming::new(root)),
+            Some(root) => Ok(PostOrderStreaming::new(root)),
             _ => Err(DoesntExist::NoRootNode),
         }
     }
