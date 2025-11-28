@@ -24,9 +24,9 @@ pub trait BasicNode {
 }
 
 pub struct Node<T> {
-    pub value: T,
-    pub left: Link<Node<T>>,
-    pub right: Link<Node<T>>,
+    pub(crate) value: T,
+    pub(crate) left: Link<Node<T>>,
+    pub(crate) right: Link<Node<T>>,
 }
 
 impl<T> Node<T> {
@@ -76,29 +76,56 @@ impl<T> BasicNode for Node<T> {
     }
 }
 
-pub struct RBNode<T> {
-    pub value: T,
-    pub left: Link<RBNode<T>>,
-    pub right: Link<RBNode<T>>,
-    pub parent: Link<RBNode<T>>,
-    pub color: Color,
+pub struct RopeNode {
+    pub(crate) text: String,
+    pub(crate) left: Link<RopeNode>,
+    pub(crate) right: Link<RopeNode>,
+    pub(crate) priority: f64,
+    pub(crate) subtree_size: i64,
 }
 
-impl<T> RBNode<T> {
-    pub fn new(value: T, color: Color, parent: Link<RBNode<T>>) -> RBNode<T> {
-        RBNode {
-            value,
+impl RopeNode {
+    pub fn new(text: &str) -> RopeNode {
+        RopeNode {
+            text: text.to_owned(),
             left: None,
             right: None,
-            color,
-            parent,
+            priority: rand::random(),
+            subtree_size: text.len() as i64,
         }
     }
 }
 
-impl<T> BasicNode for RBNode<T> {
-    type N = RBNode<T>;
-    type V = T;
+impl RopeNode {
+    pub fn priority(&self) -> &f64 {
+        &self.priority
+    }
+
+    pub fn size(&self) -> &i64 {
+        &self.subtree_size
+    }
+
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    pub(crate) fn recalculate(&mut self) {
+        let mut sum = 0;
+
+        if let Some(n) = self.left() {
+            sum += n.size()
+        }
+        if let Some(n) = self.right() {
+            sum += n.size()
+        }
+
+        self.subtree_size = self.text().len() as i64 + sum;
+    }
+}
+
+impl BasicNode for RopeNode {
+    type N = RopeNode;
+    type V = f64;
 
     fn left(&self) -> Option<&Self> {
         self.left.as_deref()
@@ -106,7 +133,9 @@ impl<T> BasicNode for RBNode<T> {
     fn right(&self) -> Option<&Self> {
         self.right.as_deref()
     }
+
+    /// Returns float (priority) so `Tree` works for `Rope`. If you want text contents use `.text()`
     fn value(&self) -> &Self::V {
-        &self.value
+        self.priority()
     }
 }

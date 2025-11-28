@@ -1,4 +1,8 @@
-use data_structures::binary_tree::{bst, trees::SearchTree, trees::Tree};
+use data_structures::binary_tree::{
+    bst,
+    nodes::BasicNode,
+    trees::{SearchTree, Tree},
+};
 
 fn main() {
     let mut tree = bst::build_sample_tree();
@@ -9,7 +13,7 @@ fn main() {
         let search_result = tree.search(node_to_search);
         println!(
             "Result from search: {}",
-            search_result.as_deref().unwrap().value
+            search_result.as_deref().unwrap().value()
         );
     }
     println!("=== End of search demo ===");

@@ -5,7 +5,7 @@ use crate::binary_tree::errors::{DeleteError, InsertError};
 use crate::binary_tree::nodes::{BasicNode, Link, Node};
 use crate::binary_tree::trees::{SearchTree, Tree};
 
-enum SearchStep {
+pub(crate) enum SearchStep {
     Left,
     Right,
     Here,
