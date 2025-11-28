@@ -63,4 +63,13 @@ mod tests {
             assert_eq!(size2, &4);
         }
     }
+
+    #[test]
+    fn inorder_rope() {
+        let tree = Rope::new("abc");
+
+        let got: Vec<&String> = tree.inorder().expect("inorder").collect();
+
+        assert_eq!(got, vec!["abc"]);
+    }
 }

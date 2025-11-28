@@ -125,7 +125,7 @@ impl RopeNode {
 
 impl BasicNode for RopeNode {
     type N = RopeNode;
-    type V = f64;
+    type V = String;
 
     fn left(&self) -> Option<&Self> {
         self.left.as_deref()
@@ -134,8 +134,7 @@ impl BasicNode for RopeNode {
         self.right.as_deref()
     }
 
-    /// Returns float (priority) so `Tree` works for `Rope`. If you want text contents use `.text()`
     fn value(&self) -> &Self::V {
-        self.priority()
+        &self.text
     }
 }
