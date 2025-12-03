@@ -94,9 +94,7 @@ impl RopeNode {
             subtree_size: text.len() as i64,
         }
     }
-}
 
-impl RopeNode {
     pub fn priority(&self) -> &f64 {
         &self.priority
     }
@@ -109,7 +107,7 @@ impl RopeNode {
         &self.text
     }
 
-    pub(crate) fn recalculate(&mut self) {
+    pub(crate) fn recalculate_size(&mut self) {
         let mut sum = 0;
 
         if let Some(n) = self.left() {
@@ -120,6 +118,30 @@ impl RopeNode {
         }
 
         self.subtree_size = self.text().len() as i64 + sum;
+    }
+
+    pub(crate) fn join(left: Link<RopeNode>, right: Link<RopeNode>) -> Link<RopeNode> {
+        match (left, right) {
+            (l, None) => l,
+            (None, r) => r,
+            (Some(mut l_node), Some(mut r_node)) => {
+                if l_node.priority > r_node.priority {
+                    let left_sub = l_node.right.take();
+
+                    l_node.right = Self::join(left_sub, Some(r_node));
+                    l_node.recalculate_size();
+
+                    Some(l_node)
+                } else {
+                    let right_sub = r_node.left.take();
+
+                    r_node.left = Self::join(Some(l_node), right_sub);
+                    r_node.recalculate_size();
+
+                    Some(r_node)
+                }
+            }
+        }
     }
 }
 

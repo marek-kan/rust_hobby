@@ -38,7 +38,7 @@ mod tests {
         }
 
         if let Some(root) = rope.get_mut_root() {
-            root.recalculate();
+            root.recalculate_size();
 
             let size = root.size();
             assert_eq!(size, &3);
@@ -56,7 +56,7 @@ mod tests {
 
         if let Some(root) = rope.get_mut_root() {
             root.text = "abcd".to_string();
-            root.recalculate();
+            root.recalculate_size();
 
             let size2 = root.size();
 
