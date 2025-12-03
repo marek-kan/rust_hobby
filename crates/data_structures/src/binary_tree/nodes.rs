@@ -152,8 +152,12 @@ impl RopeNode {
             return Ok((None, None));
         }
 
-        let left_size = root.as_ref().unwrap().subtree_size as usize;
-        let text_len = root.as_ref().unwrap().text.len();
+        let text_len = root.as_ref().unwrap().text().len() as usize;
+        let left_size = match root.as_ref().unwrap().left() {
+            Some(left) => *left.size() as usize,
+            None => 0
+        };
+        
         let node = root.as_deref_mut().unwrap();
 
         if index < left_size {
