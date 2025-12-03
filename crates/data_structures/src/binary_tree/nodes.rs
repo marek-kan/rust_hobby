@@ -1,4 +1,4 @@
-use crate::binary_tree::errors::AlreadyExists;
+use crate::binary_tree::errors::{AlreadyExists, SplitError};
 
 pub type Link<T> = Option<Box<T>>;
 
@@ -141,6 +141,60 @@ impl RopeNode {
                     Some(r_node)
                 }
             }
+        }
+    }
+
+    pub(crate) fn split(
+        mut root: Link<RopeNode>,
+        index: usize,
+    ) -> Result<(Link<RopeNode>, Link<RopeNode>), SplitError> {
+        if root.is_none() {
+            return Ok((None, None));
+        }
+
+        let left_size = root.as_ref().unwrap().subtree_size as usize;
+        let text_len = root.as_ref().unwrap().text.len();
+        let node = root.as_deref_mut().unwrap();
+
+        if index < left_size {
+            let left = node.left.take();
+            let (left_sub, right_sub) = Self::split(left, index)?;
+
+            node.left = right_sub;
+            node.recalculate_size();
+
+            return Ok((left_sub, root));
+        }
+
+        if index > left_size.strict_add(text_len) {
+            let right = node.right.take();
+            let (left_sub, right_sub) = Self::split(right, index)?;
+
+            node.right = left_sub;
+            node.recalculate_size();
+
+            return Ok((root, right_sub));
+        }
+
+        let offset = 0.max(text_len.min(index - left_size));
+
+        if let Some((left_text, right_text)) = node.text.split_at_checked(offset) {
+            let mut left_tree = node.left.take();
+            let mut right_tree = node.right.take();
+
+            if !left_text.is_empty() {
+                let left_leaf = Some(Box::new(RopeNode::new(left_text)));
+                left_tree = Self::join(left_tree, left_leaf);
+            }
+
+            if !right_text.is_empty() {
+                let right_leaf = Some(Box::new(RopeNode::new(right_text)));
+                right_tree = Self::join(right_leaf, right_tree);
+            }
+
+            Ok((left_tree, right_tree))
+        } else {
+            Err(SplitError::FailedToSplitText)
         }
     }
 }

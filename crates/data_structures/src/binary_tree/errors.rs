@@ -48,3 +48,10 @@ pub enum DeleteError {
     #[error("Failed to detele the node!")]
     FailedToDeleteNode,
 }
+#[derive(Error, Debug)]
+pub enum SplitError {
+    #[error("Failed to split the node!")]
+    FailedToSplitNode,
+    #[error("Failed to split the text!")]
+    FailedToSplitText,
+}
