@@ -1,4 +1,7 @@
-use crate::binary_tree::nodes::{BasicNode, Link, RopeNode};
+use core::fmt;
+
+use crate::binary_tree::errors::{DoesntExist, InsertError};
+use crate::binary_tree::nodes::{Link, RopeNode};
 use crate::binary_tree::trees::Tree;
 
 pub struct Rope {
@@ -17,10 +20,53 @@ impl Tree for Rope {
 }
 
 impl Rope {
-    fn new(text: &str) -> Rope {
+    pub fn new(text: &str) -> Rope {
         Rope {
             root: Some(Box::new(RopeNode::new(text))),
         }
+    }
+
+    fn tree_size(&self) -> Option<usize> {
+        self.root.as_ref().map(|root| *root.size() as usize)
+    }
+
+    pub fn insert(mut self, text: &str, index: usize) -> Result<Self, InsertError> {
+        if self.root.is_none() {
+            return Err(InsertError::NoRoot(DoesntExist::NoRootNode));
+        }
+
+        self.get_root().unwrap().check_index_inclusive(index)?;
+
+        let middle = Some(Box::new(RopeNode::new(text)));
+        let (mut left, right) = RopeNode::split(self.root, index)?;
+
+        left = RopeNode::join(left, middle);
+        self.root = RopeNode::join(left, right);
+
+        Ok(self)
+    }
+
+    pub fn append(self, text: &str) -> Result<Self, InsertError> {
+        let length = self.tree_size();
+
+        if length.is_none() {
+            return Err(InsertError::NoRoot(DoesntExist::NoRootNode));
+        }
+
+        let result = self.insert(text, length.unwrap())?;
+        Ok(result)
+    }
+}
+
+impl fmt::Display for Rope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str_parts: Vec<&str> = self
+            .inorder()
+            .expect("inorder")
+            .map(|s| s.as_str())
+            .collect();
+
+        write!(f, "{}", str_parts.join(""))
     }
 }
 
@@ -65,11 +111,49 @@ mod tests {
     }
 
     #[test]
-    fn inorder_rope() {
+    fn inorder_simple_rope() {
         let tree = Rope::new("abc");
 
         let got: Vec<&String> = tree.inorder().expect("inorder").collect();
 
         assert_eq!(got, vec!["abc"]);
+    }
+
+    #[test]
+    fn append_rope() {
+        let mut rope = Rope::new("a");
+        rope = rope
+            .append("b")
+            .expect("Error appending `b` into rope tree");
+
+        let text = rope.to_string();
+        assert_eq!(text, "ab")
+    }
+
+    #[test]
+    fn insert_rope() {
+        let mut rope = Rope::new("ac");
+        rope = rope
+            .insert("b", 1)
+            .expect("Error inserting `b` into rope tree");
+
+        let text = rope.to_string();
+        assert_eq!(text, "abc")
+    }
+
+    #[test]
+    fn append_without_root() {
+        let rope = Rope { root: None };
+
+        let result = rope.append("");
+        assert!(result.is_err())
+    }
+
+    #[test]
+    fn insert_without_root() {
+        let rope = Rope { root: None };
+
+        let result = rope.insert("", 0);
+        assert!(result.is_err())
     }
 }

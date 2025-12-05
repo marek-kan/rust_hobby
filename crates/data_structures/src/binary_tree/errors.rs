@@ -32,6 +32,12 @@ pub enum InsertError {
     ParentHasSameValue,
     #[error("Failed to find parent node!")]
     ParentNotFound,
+    #[error("Index is not inclusive")]
+    NotInclusiveError(#[from] IndexError),
+    #[error("Could not split root")]
+    SplitError(#[from] SplitError),
+    #[error("Root doesn't exist")]
+    NoRoot(#[from] DoesntExist),
 }
 
 impl From<AlreadyExists> for InsertError {
@@ -54,4 +60,12 @@ pub enum SplitError {
     FailedToSplitNode,
     #[error("Failed to split the text!")]
     FailedToSplitText,
+}
+
+#[derive(Error, Debug)]
+pub enum IndexError {
+    #[error("Index is not inclusive")]
+    NotInclusiveError,
+    #[error("Index is not exclusive")]
+    NotExclusiveError,
 }

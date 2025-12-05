@@ -1,4 +1,4 @@
-use crate::binary_tree::errors::{AlreadyExists, SplitError};
+use crate::binary_tree::errors::{AlreadyExists, IndexError, SplitError};
 
 pub type Link<T> = Option<Box<T>>;
 
@@ -107,6 +107,22 @@ impl RopeNode {
         &self.text
     }
 
+    pub(crate) fn check_index_inclusive(&self, index: usize) -> Result<(), IndexError> {
+        if index <= *self.size() as usize {
+            Ok(())
+        } else {
+            Err(IndexError::NotInclusiveError)
+        }
+    }
+
+    pub(crate) fn check_index_exclusive(&self, index: usize) -> Result<(), IndexError> {
+        if index < *self.size() as usize {
+            Ok(())
+        } else {
+            Err(IndexError::NotExclusiveError)
+        }
+    }
+
     pub(crate) fn recalculate_size(&mut self) {
         let mut sum = 0;
 
@@ -152,12 +168,12 @@ impl RopeNode {
             return Ok((None, None));
         }
 
-        let text_len = root.as_ref().unwrap().text().len() as usize;
+        let text_len = root.as_ref().unwrap().text().len();
         let left_size = match root.as_ref().unwrap().left() {
             Some(left) => *left.size() as usize,
-            None => 0
+            None => 0,
         };
-        
+
         let node = root.as_deref_mut().unwrap();
 
         if index < left_size {
