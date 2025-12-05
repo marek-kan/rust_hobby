@@ -53,7 +53,12 @@ impl From<AlreadyExists> for InsertError {
 pub enum DeleteError {
     #[error("Failed to detele the node!")]
     FailedToDeleteNode,
+    #[error("Root doesn't exist")]
+    NoRoot(#[from] DoesntExist),
+    #[error("Could not split root")]
+    SplitError(#[from] SplitError),
 }
+
 #[derive(Error, Debug)]
 pub enum SplitError {
     #[error("Failed to split the node!")]

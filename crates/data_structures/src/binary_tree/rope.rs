@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::binary_tree::errors::{DoesntExist, InsertError};
+use crate::binary_tree::errors::{DeleteError, DoesntExist, InsertError};
 use crate::binary_tree::nodes::{Link, RopeNode};
 use crate::binary_tree::trees::Tree;
 
@@ -55,6 +55,23 @@ impl Rope {
 
         let result = self.insert(text, length.unwrap())?;
         Ok(result)
+    }
+
+    pub fn delete(mut self, start: usize, end: usize) -> Result<Self, DeleteError> {
+        let length = self.tree_size();
+
+        if length.is_none() {
+            return Err(DeleteError::NoRoot(DoesntExist::NoRootNode));
+        }
+
+        let delete_range = end.min(length.unwrap() - start);
+
+        let (left, rest) = RopeNode::split(self.root, start)?;
+        let (_middle, right) = RopeNode::split(rest, delete_range)?;
+
+        self.root = RopeNode::join(left, right);
+
+        Ok(self)
     }
 }
 
@@ -155,5 +172,16 @@ mod tests {
 
         let result = rope.insert("", 0);
         assert!(result.is_err())
+    }
+
+    #[test]
+    fn delete_range() {
+        let mut rope = Rope::new("Rust is awesome!");
+        let start: usize = 7;
+        let end = rope.tree_size().unwrap();
+
+        rope = rope.delete(start, end).unwrap();
+
+        assert_eq!(rope.to_string(), "Rust is")
     }
 }
