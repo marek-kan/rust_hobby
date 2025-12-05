@@ -1,62 +1,15 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum AlreadyExists {
+pub enum TreeCoreError {
+    #[error("Root node does not exist!")]
+    NoRootNode,
+    #[error("Target node does not exist!")]
+    NoTargetNode,
     #[error("Left tree already exists!")]
     LeftTreeExists,
     #[error("Right tree already exists!")]
     RightTreeExists,
-}
-
-#[derive(Error, Debug)]
-pub enum DoesntExist {
-    #[error["Root node does not exist!"]]
-    NoRootNode,
-    #[error["Target node does not exist!"]]
-    NoTargetNode,
-}
-
-#[derive(Error, Debug)]
-pub enum ParentError {
-    #[error("Failed to find parent node!")]
-    ParentNodeNotFound,
-}
-
-#[derive(Error, Debug)]
-pub enum InsertError {
-    #[error("Left tree already exists!")]
-    LeftAlreadyExists,
-    #[error("Right tree already exists!")]
-    RightAlreadyExists,
-    #[error("Parent and inserted value are same!")]
-    ParentHasSameValue,
-    #[error("Failed to find parent node!")]
-    ParentNotFound,
-    #[error("Index is not inclusive")]
-    NotInclusiveError(#[from] IndexError),
-    #[error("Could not split root")]
-    SplitError(#[from] SplitError),
-    #[error("Root doesn't exist")]
-    NoRoot(#[from] DoesntExist),
-}
-
-impl From<AlreadyExists> for InsertError {
-    fn from(error: AlreadyExists) -> Self {
-        match error {
-            AlreadyExists::LeftTreeExists => InsertError::LeftAlreadyExists,
-            AlreadyExists::RightTreeExists => InsertError::RightAlreadyExists,
-        }
-    }
-}
-
-#[derive(Error, Debug)]
-pub enum DeleteError {
-    #[error("Failed to detele the node!")]
-    FailedToDeleteNode,
-    #[error("Root doesn't exist")]
-    NoRoot(#[from] DoesntExist),
-    #[error("Could not split root")]
-    SplitError(#[from] SplitError),
 }
 
 #[derive(Error, Debug)]
@@ -73,4 +26,36 @@ pub enum IndexError {
     NotInclusiveError,
     #[error("Index is not exclusive")]
     NotExclusiveError,
+}
+
+#[derive(Error, Debug)]
+pub enum InsertError {
+    #[error("Parent and inserted value are same!")]
+    ParentHasSameValue,
+    #[error("Parent not found!")]
+    ParentNotFound,
+
+    #[error(transparent)]
+    Core(#[from] TreeCoreError),
+
+    #[error(transparent)]
+    Index(#[from] IndexError),
+
+    #[error(transparent)]
+    Split(#[from] SplitError),
+}
+
+#[derive(Error, Debug)]
+pub enum DeleteError {
+    #[error("Failed to delete the node!")]
+    FailedToDeleteNode,
+
+    #[error(transparent)]
+    Core(#[from] TreeCoreError),
+
+    #[error[transparent]]
+    Index(#[from] IndexError),
+
+    #[error(transparent)]
+    Split(#[from] SplitError),
 }

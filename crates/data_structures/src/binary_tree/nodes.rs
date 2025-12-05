@@ -1,4 +1,4 @@
-use crate::binary_tree::errors::{AlreadyExists, IndexError, SplitError};
+use crate::binary_tree::errors::{IndexError, SplitError, TreeCoreError};
 
 pub type Link<T> = Option<Box<T>>;
 
@@ -38,9 +38,9 @@ impl<T> Node<T> {
         }
     }
 
-    pub fn assign_left(&mut self, value: T) -> Result<&mut Node<T>, AlreadyExists> {
+    pub fn assign_left(&mut self, value: T) -> Result<&mut Node<T>, TreeCoreError> {
         if self.left.is_some() {
-            return Err(AlreadyExists::LeftTreeExists);
+            return Err(TreeCoreError::LeftTreeExists);
         }
 
         self.left = Some(Box::new(Node::new(value)));
@@ -48,9 +48,9 @@ impl<T> Node<T> {
         Ok(self.left.as_mut().unwrap())
     }
 
-    pub fn assign_right(&mut self, value: T) -> Result<&mut Node<T>, AlreadyExists> {
+    pub fn assign_right(&mut self, value: T) -> Result<&mut Node<T>, TreeCoreError> {
         if self.right.is_some() {
-            return Err(AlreadyExists::RightTreeExists);
+            return Err(TreeCoreError::RightTreeExists);
         }
 
         self.right = Some(Box::new(Node::new(value)));

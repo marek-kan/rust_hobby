@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::binary_tree::errors::{DeleteError, DoesntExist, InsertError};
+use crate::binary_tree::errors::{DeleteError, InsertError, TreeCoreError};
 use crate::binary_tree::nodes::{Link, RopeNode};
 use crate::binary_tree::trees::Tree;
 
@@ -32,7 +32,7 @@ impl Rope {
 
     pub fn insert(mut self, text: &str, index: usize) -> Result<Self, InsertError> {
         if self.root.is_none() {
-            return Err(InsertError::NoRoot(DoesntExist::NoRootNode));
+            return Err(InsertError::Core(TreeCoreError::NoRootNode));
         }
 
         self.get_root().unwrap().check_index_inclusive(index)?;
@@ -50,7 +50,7 @@ impl Rope {
         let length = self.tree_size();
 
         if length.is_none() {
-            return Err(InsertError::NoRoot(DoesntExist::NoRootNode));
+            return Err(InsertError::Core(TreeCoreError::NoRootNode));
         }
 
         let result = self.insert(text, length.unwrap())?;
@@ -61,8 +61,10 @@ impl Rope {
         let length = self.tree_size();
 
         if length.is_none() {
-            return Err(DeleteError::NoRoot(DoesntExist::NoRootNode));
+            return Err(DeleteError::Core(TreeCoreError::NoRootNode));
         }
+
+        self.get_root().unwrap().check_index_exclusive(start)?;
 
         let delete_range = end.min(length.unwrap() - start);
 
