@@ -1,15 +1,19 @@
-use data_structures::binary_tree::bt::{self, Tree};
+use data_structures::binary_tree::{
+    bt,
+    nodes::{BasicNode, Node},
+    trees::Tree,
+};
 
 fn demo_single_node() {
     println!("=== Node demo ===");
-    let mut root = bt::Node::new(1);
-    root.left = Some(Box::new(bt::Node::new(2)));
+    let mut root = Node::new(1);
+    let _left = root.assign_left(2).expect("Failed to assign root.left");
 
-    println!("root.value = {}", root.value);
-    println!("root.left.value = {}", root.left.as_ref().unwrap().value);
+    println!("root.value = {}", root.value());
+    println!("root.left.value = {}", root.left().unwrap().value());
 
-    match &root.right {
-        Some(node) => println!("root.right.value = {}", node.value),
+    match root.right() {
+        Some(node) => println!("root.right.value = {}", node.value()),
         None => println!("root.right is empty"),
     }
 
@@ -17,11 +21,11 @@ fn demo_single_node() {
     println!("=== End of Node demo ===");
 }
 
-fn right_right_right(start: Option<&bt::Node<i64>>) -> Option<&bt::Node<i64>> {
+fn right_right_right(start: Option<&Node<i64>>) -> Option<&Node<i64>> {
     start
-        .and_then(|n| n.right.as_deref())
-        .and_then(|n| n.right.as_deref())
-        .and_then(|n| n.right.as_deref())
+        .and_then(|n| n.right())
+        .and_then(|n| n.right())
+        .and_then(|n| n.right())
 }
 
 fn demo_traversals(tree: &bt::BinaryTree<i64>) {
@@ -43,20 +47,25 @@ fn main() {
     // Just printing some values from the tree
     println!("Height of the BinaryTree: {}", bt.root.height());
 
-    match bt.root.left.as_deref() {
-        Some(node) => println!("tree.root.left: {}", node.value),
+    match bt.root.left() {
+        Some(node) => println!("tree.root.left: {}", node.value()),
         _ => println!("tree.root.left = <none>"),
     };
 
-    let deep_right = right_right_right(bt.root.right.as_deref());
+    let deep_right = right_right_right(bt.root.right());
     match deep_right {
-        Some(node) => println!("tree.root.right.right.right: {}", node.value),
+        Some(node) => println!("tree.root.right.right.right: {}", node.value()),
         _ => println!("tree.root.right.right.right = <none>"),
     };
 
     // Depth of a node
-    match bt.root.right.as_deref().and_then(|n| n.right.as_deref()) {
-        Some(node) => println!("depth(root.right.right) = {}", bt.depth(node)),
+    match bt
+        .root
+        .right()
+        .and_then(|n| n.right())
+        .and_then(|n| bt.depth(n))
+    {
+        Some(depth) => println!("depth(root.right.right) = {}", depth),
         _ => println!("depth(root.right.right) = <none>"),
     };
 

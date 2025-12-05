@@ -1,49 +1,30 @@
 use log::info;
 use std::{cmp::Ordering, fmt::Display};
 
-use crate::binary_tree::bt::{AlreadyExists, Link, Node, Tree};
+use crate::binary_tree::errors::{DeleteError, InsertError};
+use crate::binary_tree::nodes::{BasicNode, Link, Node};
+use crate::binary_tree::trees::{SearchTree, Tree};
 
-#[derive(Debug)]
-pub enum ParentError {
-    ParentNodeNotFound,
-}
-
-#[derive(Debug)]
-pub enum InsertError {
-    LeftAlreadyExists,
-    RightAlreadyExists,
-    ParentHasSameValue,
-    ParentNotFound,
-}
-
-impl From<AlreadyExists> for InsertError {
-    fn from(error: AlreadyExists) -> Self {
-        match error {
-            AlreadyExists::LeftTreeExists => InsertError::LeftAlreadyExists,
-            AlreadyExists::RightTreeExists => InsertError::RightAlreadyExists,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum DeleteError {
-    FailedToDeleteNode,
-}
-
-enum SearchStep {
+pub(crate) enum SearchStep {
     Left,
     Right,
     Here,
 }
 
-pub trait SearchTree<T>: Tree<T> {
-    fn search<'a>(&'a mut self, node: &Node<T>) -> &'a mut Link<T>;
-    fn insert(&mut self, node: Node<T>) -> Result<(), InsertError>;
-    fn delete(&mut self, node: &Node<T>) -> Result<(), DeleteError>;
+pub struct BinarySearchTree<T> {
+    pub root: Link<Node<T>>,
 }
 
-pub struct BinarySearchTree<T> {
-    pub root: Link<T>,
+impl<T> Tree for BinarySearchTree<T> {
+    type Node = Node<T>;
+
+    fn get_root(&self) -> Option<&Self::Node> {
+        self.root.as_deref()
+    }
+
+    fn get_mut_root(&mut self) -> Option<&mut Node<T>> {
+        self.root.as_deref_mut()
+    }
 }
 
 impl<T: Ord> BinarySearchTree<T> {
@@ -53,21 +34,21 @@ impl<T: Ord> BinarySearchTree<T> {
         }
     }
 
-    fn _search<'a>(mut link: &'a mut Link<T>, key: &T) -> &'a mut Link<T> {
+    fn _search<'a>(mut link: &'a mut Link<Node<T>>, key: &T) -> &'a mut Link<Node<T>> {
         loop {
             // Immutable peek so we don't risk & and &mut overlapping
             let step = match link.as_ref() {
                 None => SearchStep::Here,
 
                 Some(n) => {
-                    if key < &n.value {
-                        if n.left.is_none() {
+                    if key < n.value() {
+                        if n.left().is_none() {
                             SearchStep::Here
                         } else {
                             SearchStep::Left
                         }
-                    } else if key > &n.value {
-                        if n.right.is_none() {
+                    } else if key > n.value() {
+                        if n.right().is_none() {
                             SearchStep::Here
                         } else {
                             SearchStep::Right
@@ -94,27 +75,19 @@ impl<T: Ord> BinarySearchTree<T> {
     }
 }
 
-impl<T> Tree<T> for BinarySearchTree<T> {
-    fn get_root(&self) -> Option<&Node<T>> {
-        self.root.as_deref()
+impl<T: Ord + Display> SearchTree for BinarySearchTree<T> {
+    type Value = T;
+
+    fn search<'a>(&'a mut self, value: &T) -> &'a mut Link<Node<T>> {
+        Self::_search(&mut self.root, value)
     }
 
-    fn get_mut_root(&mut self) -> Option<&mut Node<T>> {
-        self.root.as_deref_mut()
-    }
-}
-
-impl<T: Ord + Display> SearchTree<T> for BinarySearchTree<T> {
-    fn search<'a>(&'a mut self, node: &Node<T>) -> &'a mut Link<T> {
-        Self::_search(&mut self.root, &node.value)
-    }
-
-    fn delete(&mut self, node: &Node<T>) -> Result<(), DeleteError> {
-        let link = self.search(node);
+    fn delete(&mut self, value: &T) -> Result<(), DeleteError> {
+        let link = self.search(value);
 
         match link {
             Some(node) => {
-                let leaf_states = (node.left.is_none(), node.right.is_none());
+                let leaf_states = (node.left().is_none(), node.right().is_none());
 
                 match leaf_states {
                     (true, true) => {
@@ -154,24 +127,24 @@ impl<T: Ord + Display> SearchTree<T> for BinarySearchTree<T> {
         }
     }
 
-    fn insert(&mut self, node: Node<T>) -> Result<(), InsertError> {
-        let parent = self.search(&node);
+    fn insert(&mut self, value: T) -> Result<(), InsertError> {
+        let parent = self.search(&value);
 
         if let Some(p) = parent.as_ref() {
-            info!("About to insert node under {}", p.value);
+            info!("About to insert node under {}", p.value());
         }
 
         match parent {
-            Some(n) => match node.value.cmp(&n.value) {
+            Some(n) => match value.cmp(n.value()) {
                 Ordering::Equal => Err(InsertError::ParentHasSameValue),
 
                 Ordering::Greater => {
-                    let _right: &mut Node<T> = n.assign_right(node.value)?;
+                    let _right: &mut Node<T> = n.assign_right(value)?;
                     Ok(())
                 }
 
                 Ordering::Less => {
-                    let _left: &mut Node<T> = n.assign_left(node.value)?;
+                    let _left: &mut Node<T> = n.assign_left(value)?;
                     Ok(())
                 }
             },
@@ -215,7 +188,7 @@ mod tests {
     #[test]
     fn find_3() {
         let mut tree = build_sample_tree();
-        let result = tree.search(&Node::new(3)).as_ref().expect("Search failed");
+        let result = tree.search(&3).as_ref().expect("Search failed");
 
         assert_eq!(result.value, 3);
     }
@@ -223,10 +196,7 @@ mod tests {
     #[test]
     fn find_100() {
         let mut tree = build_sample_tree();
-        let result = tree
-            .search(&Node::new(100))
-            .as_ref()
-            .expect("Search failed");
+        let result = tree.search(&100).as_ref().expect("Search failed");
 
         assert_eq!(result.value, 8);
     }
@@ -235,7 +205,7 @@ mod tests {
     fn inorder_after_insert_0() {
         let mut tree = build_sample_tree();
 
-        tree.insert(Node::new(0)).expect("insert(0)");
+        tree.insert(0).expect("insert(0)");
 
         let got: Vec<i64> = tree.inorder().expect("inorder").copied().collect();
 
@@ -246,7 +216,7 @@ mod tests {
     fn preorder_after_delete_6() {
         let mut tree = build_sample_tree();
 
-        tree.delete(&Node::new(6)).expect("delete(6)");
+        tree.delete(&6).expect("delete(6)");
 
         let got: Vec<i64> = tree.preorder().expect("preorder").copied().collect();
 
@@ -256,7 +226,7 @@ mod tests {
     #[test]
     fn inorder_after_delete_6_is_sorted_without_6() {
         let mut tree = build_sample_tree();
-        tree.delete(&Node::new(6)).expect("delete(6)");
+        tree.delete(&6).expect("delete(6)");
 
         let got: Vec<i64> = tree.inorder().expect("inorder").copied().collect();
 

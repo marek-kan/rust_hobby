@@ -1,0 +1,8 @@
+# merge_imports = true
+# imports_indent = "Block"
+# imports_layout = "Vertical"
+# imports_granularity = "Crate"
+# control_brace_style = "ClosingNextLine"
+reorder_imports = true
+
+single_line_let_else_max_width = 0
