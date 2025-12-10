@@ -1,4 +1,4 @@
-enum Actions {
+pub enum Actions {
     Insert,
     Delete,
     Backspace,

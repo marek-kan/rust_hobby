@@ -169,6 +169,7 @@ impl RopeNode {
         }
 
         let text_len = root.as_ref().unwrap().text().len();
+
         let left_size = match root.as_ref().unwrap().left() {
             Some(left) => *left.size() as usize,
             None => 0,
@@ -188,7 +189,9 @@ impl RopeNode {
 
         if index > left_size.strict_add(text_len) {
             let right = node.right.take();
-            let (left_sub, right_sub) = Self::split(right, index)?;
+            let right_index = index - left_size - text_len;
+
+            let (left_sub, right_sub) = Self::split(right, right_index)?;
 
             node.right = left_sub;
             node.recalculate_size();
