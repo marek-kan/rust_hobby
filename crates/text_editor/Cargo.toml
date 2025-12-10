@@ -4,7 +4,8 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 
-[dependencies]
-
 [lints]
 workspace = true
+
+[dependencies]
+data_structures = { path = "../data_structures" }
