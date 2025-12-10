@@ -81,7 +81,7 @@ impl fmt::Display for Rope {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str_parts: Vec<&str> = self
             .inorder()
-            .expect("inorder")
+            .expect("Inorder traversal failure during display in `Rope`")
             .map(|s| s.as_str())
             .collect();
 
