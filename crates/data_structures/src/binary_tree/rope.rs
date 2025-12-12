@@ -26,7 +26,7 @@ impl Rope {
         }
     }
 
-    fn tree_size(&self) -> Option<usize> {
+    pub fn tree_size(&self) -> Option<usize> {
         self.root.as_ref().map(|root| *root.size() as usize)
     }
 

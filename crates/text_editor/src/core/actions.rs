@@ -10,5 +10,6 @@ pub enum Actions {
     Undo,
     Redo,
     Save,
+    Open,
     Quit,
 }
