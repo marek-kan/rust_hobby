@@ -91,7 +91,7 @@ impl RopeNode {
             left: None,
             right: None,
             priority: rand::random(),
-            subtree_size: text.len() as i64,
+            subtree_size: text.chars().count() as i64,
         }
     }
 
@@ -187,7 +187,7 @@ impl RopeNode {
             return Ok((left_sub, root));
         }
 
-        if index > left_size.strict_add(text_len) {
+        if index >= left_size.strict_add(text_len) {
             let right = node.right.take();
             let right_index = index - left_size - text_len;
 

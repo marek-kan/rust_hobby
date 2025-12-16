@@ -8,4 +8,5 @@ authors.workspace = true
 workspace = true
 
 [dependencies]
+crossterm = "0.29.0"
 data_structures = { path = "../data_structures" }

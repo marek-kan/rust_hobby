@@ -21,23 +21,34 @@ impl TextBuffer {
 pub struct Cursor {
     pub line: usize,
     pub column: usize,
-    pub index: usize,
+    // pub index: usize,
 }
 
 impl Cursor {
     pub fn move_inline_left(&mut self) {
-        self.index -= 1;
+        if self.column > 0 {
+            self.column -= 1;
+        }
     }
 
     pub fn move_inline_right(&mut self) {
-        self.index += 1;
-    }
-
-    pub fn move_line_down(&mut self) {
         self.column += 1;
     }
 
+    pub fn move_line_down(&mut self) {
+        self.line += 1;
+    }
+
     pub fn move_line_up(&mut self) {
-        self.column -= 1;
+        if self.line > 0 {
+            self.line -= 1;
+        }
+    }
+
+    pub fn index(&self) -> usize {
+        let c = self.column;
+        let l = if self.line == 0 { 0 } else { self.line + 1 };
+
+        l + c
     }
 }
