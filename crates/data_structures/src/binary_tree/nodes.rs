@@ -133,7 +133,7 @@ impl RopeNode {
             sum += n.size()
         }
 
-        self.subtree_size = self.text().len() as i64 + sum;
+        self.subtree_size = self.text().chars().count() as i64 + sum;
     }
 
     pub(crate) fn join(left: Link<RopeNode>, right: Link<RopeNode>) -> Link<RopeNode> {

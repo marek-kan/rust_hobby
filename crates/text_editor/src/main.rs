@@ -6,7 +6,7 @@ use std::sync::mpsc::TryRecvError;
 use std::time::Duration;
 use std::{fs, io};
 use text_editor::core::actions::Actions;
-use text_editor::core::management::Cursor;
+use text_editor::core::management::{Cursor, TextBuffer};
 
 use crossterm::event::KeyEventKind;
 pub use crossterm::{
@@ -26,49 +26,43 @@ fn debug_state(label: &str, cursor: &Cursor, rope: &Rope) {
     let text = rope.to_string();
     println!("--- {label} ---");
     println!("cursor = ({}, {})", cursor.line, cursor.column);
-    println!("cursor.index() = {}", cursor.index());
+    println!("cursor.index() = {}", cursor.index);
     println!("rope.len() = {}", text.len());
     println!("rope = {:?}", text);
     println!();
 }
 
-fn render<W: Write>(out: &mut W, rope: &Rope, cursor_pos: &Cursor) -> io::Result<()> {
+fn render<W: Write>(out: &mut W, rope: &Rope, cursor: &Cursor) -> io::Result<()> {
     let text = rope.to_string();
     let lines: Vec<&str> = text.split('\n').collect();
 
-    execute!(out, cursor::Hide, Clear(ClearType::All))?;
+    queue!(out, Clear(ClearType::All))?;
 
     for (row, line) in lines.iter().enumerate() {
-        execute!(
+        queue!(
             out,
             cursor::MoveTo(0, row as u16),
             Clear(ClearType::CurrentLine),
-            style::Print(format!("{}/{}: {}", row,cursor_pos.index(),line))
+            style::Print(line)
         )?;
     }
 
-    // execute!(out, Clear(ClearType::All), style::Print(text))?;
+    queue!(out, move_cursor(&cursor))?;
 
-    execute!(
-        out,
-        cursor::MoveTo(cursor_pos.column as u16, cursor_pos.line as u16),
-        cursor::Show
-    )?;
-
-    // out.flush()?;
+    out.flush()?;
     Ok(())
 }
 
 fn main() -> io::Result<()> {
     let mut stdout = io::stdout();
-    let mut rope = Rope::new("");
-    let mut cursor = Cursor { line: 0, column: 0 };
+    let mut buf = TextBuffer::new();
+    let mut cursor = Cursor { line: 0, column: 0 , index: 0};
 
     execute!(stdout, terminal::EnterAlternateScreen)?;
     terminal::enable_raw_mode()?;
 
     loop {
-        render(&mut stdout, &rope, &cursor)?;
+        render(&mut stdout, &buf.data, &cursor)?;
 
         let event = event::read()?;
         if let Event::Key(key) = event {
@@ -78,20 +72,21 @@ fn main() -> io::Result<()> {
 
             match key.code {
                 KeyCode::Char(c) => {
-                    rope = rope.insert(&c.to_string(), cursor.index()).unwrap();
-                    cursor.move_inline_right();
+                    // rope = rope.insert(&c.to_string(), cursor.index).unwrap();
+                    buf = buf.insert(&c.to_string(), cursor.index).unwrap();
+                    cursor.move_by_char(c);
                 }
 
                 KeyCode::Enter => {
-                    rope = rope.insert("\n", cursor.index()).unwrap();
-                    cursor.move_line_down();
-                    cursor.column = 0;
+                    // rope = rope.insert("\n", cursor.index).unwrap();
+                    buf = buf.insert("\n", cursor.index).unwrap();
+                    cursor.move_by_char('\n');
                 }
 
-                KeyCode::Left => cursor.move_inline_left(),
-                KeyCode::Right => cursor.move_inline_right(),
-                KeyCode::Up => cursor.move_line_up(),
-                KeyCode::Down => cursor.move_line_down(),
+                KeyCode::Left => cursor.move_inline_left(&buf),
+                KeyCode::Right => cursor.move_inline_right(&buf),
+                KeyCode::Up => cursor.move_line_up(&buf),
+                KeyCode::Down => cursor.move_line_down(&buf),
 
                 KeyCode::Esc => break,
 
