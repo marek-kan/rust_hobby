@@ -30,43 +30,49 @@ impl TextBuffer {
 
     pub fn line_range(&self, line_number: usize) -> (usize, usize) {
         let line_start = self.state[line_number];
-        let tree_size = self.data.tree_size().expect("Failed to calculate tree size");
 
-        let line_end = self.state.get(line_number+1).unwrap_or(
-            &tree_size
-        );
-
-        (line_start, *line_end)
+        if self.line_count() - 1 == line_number {
+           return (line_start, self.data.tree_size().expect("Failed to calculate tree size"));
+        } else {
+            return (line_start, *self.state.get(line_number+1).unwrap());
+        }
     }
 
     pub fn insert(mut self, text: &str, index: usize) -> Result<Self, InsertError> {
-        let text_len = text.len();
-
-        // This should always find a line and index, if not, something went terribly wrong and we can't recover now.
-        let line_no = self.find_line_by_index(index);
-        let (line_start_index, line_end_index) = self.line_range(line_no);
-
-        let line_len = line_end_index.checked_sub(line_start_index).unwrap_or(0) ;
-        let state_len = self.state.len();
-        
+        let text_len = text.chars().count();
         self.data = self.data.insert(text, index)?;
 
+        let state_len = self.line_count() - 1;
+        let line_no = self.find_line_by_index(index);
+
+        let (line_start_index, line_end_index) = self.line_range(line_no);
+        let line_len = line_end_index.checked_sub(line_start_index).expect(
+            format!("Couldn't subtract end({}) - start({}) index at line {}, state len: {}, tree size: {:?}, state: {:?}", line_end_index, line_start_index, line_no, state_len, self.data.tree_size(), self.state).as_str()
+        );
+
         if text.ends_with("\n") {
-            let new_line_length = line_len.checked_sub(index).unwrap_or(0);
-            let old_line_length = line_len.checked_sub(new_line_length).unwrap_or(0) + text_len;
 
             if line_no < state_len {
                 // split to two lines
+                let new_line_length = line_len.checked_sub(index).unwrap_or(0);
+                let old_line_length = line_len.checked_sub(new_line_length).unwrap_or(0) + text_len;
+
+                // panic!("{}", format!(
+                //     "Couldn't subtract end({}) - start({}) index at line {}, state len: {}, tree size: {:?}, state: {:?}, newline: {}, oldline: {}", 
+                //     line_end_index, line_start_index, line_no, state_len, self.data.tree_size(), self.state, new_line_length, old_line_length).as_str()
+                // );
+                
                 self.state.insert(line_no+1, new_line_length);
+                self.state[line_no] = old_line_length;
+
             } else {
                 // add new line at the end
-                self.state.push(new_line_length);
+                self.state.push(index);
             }
 
-            self.state[line_no] = old_line_length;
         } else {
             // update state
-            for line_idx in line_no+1..self.state.len() {
+            for line_idx in line_no+1..self.line_count() {
                 self.state[line_idx] += text_len;
             }
         };
@@ -93,11 +99,21 @@ pub struct Cursor {
     pub line: usize,
     pub column: usize,
     pub index: usize,
+    desired_column: usize
 }
 
 impl Cursor {
+    pub fn new(line: usize, index: usize, column: usize) -> Self {
+        Self { line, column, index, desired_column: column }
+    }
+
+    pub fn default() -> Self {
+        Self { line: 0, column: 0, index: 0, desired_column: 0 }
+    }
+
+
     pub fn move_by_char(&mut self, c: char) {
-        self.index += c.len_utf8();
+        self.index += 1;
 
         if c == '\n' {
             self.line += 1;
@@ -105,49 +121,71 @@ impl Cursor {
         } else {
             self.column += 1;
         }
+
+        self.desired_column = self.column;
     }
 
     pub fn move_inline_left(&mut self, text_buffer: &TextBuffer) {
-        let line_no = text_buffer.find_line_by_index(self.index);//;.expect("Failed to localize line no.");
-        let (line_start_index, line_end_index) = text_buffer.line_range(line_no);
 
-        if self.column - 1 >= line_start_index {
+        if self.column != 0 {
             self.column -= 1;
-        } else {
-            let new_line = line_no.checked_sub(1).unwrap_or(0);
-            let (new_start, new_end) = text_buffer.line_range(new_line);
 
-            self.line -= 1;
-            self.column = new_end;
+        } else {
+            self.line = self.line.checked_sub(1).unwrap_or(0);
+            self.column = self.columns_in_line(text_buffer, self.line);
         }
+
+        self.index = self.index.checked_sub(1).unwrap_or(0) ;
+        self.desired_column = self.column;
     }
 
     pub fn move_inline_right(&mut self, text_buffer: &TextBuffer) {
-        let line_no = text_buffer.find_line_by_index(self.index);//.expect("Failed to localize line no.");
-        let (line_start_index, line_end_index) = text_buffer.line_range(line_no);
+        let cols = self.columns_in_line(text_buffer, self.line);
 
-        if self.column + 1 <= line_end_index {
+        if self.column < cols {
             self.column += 1;
         } else {
-            let new_line = (line_no+1).min(text_buffer.line_count());
-            let (new_start, new_end) = text_buffer.line_range(new_line);
-
-            self.line += 1;
-            self.column = new_start;
+            self.line = (self.line+1).min(text_buffer.line_count()-1);
+            self.column = 0;
         }
+
+        self.index += 1;
+        self.desired_column = self.column;
     }
 
     pub fn move_line_down(&mut self, text_buffer: &TextBuffer) {
         if self.line + 1 > text_buffer.line_count() {
             return;
         }
-
         self.line += 1;
+
+        let cols = self.columns_in_line(text_buffer, self.line);
+
+        self.column = cols.min(self.desired_column);
     }
 
     pub fn move_line_up(&mut self, text_buffer: &TextBuffer) {
         if self.line > 0 {
             self.line -= 1;
+
+            let cols = self.columns_in_line(text_buffer, self.line);
+            
+            self.column = cols.min(self.desired_column);
         }
+    }
+
+    fn columns_in_line(&self, text_buffer: &TextBuffer, line_no: usize) -> usize {
+        let (line_start_index, line_end_index) = text_buffer.line_range(line_no);
+
+        if line_end_index < line_start_index {
+            panic!(
+                "{}",
+                format!("start: {}, end: {}, line: {}", line_start_index, line_end_index, line_no)
+            )
+        }
+
+        line_end_index.checked_sub(line_start_index).expect(
+            format!("Couldn't subtract end({}) - start({}) index at line {}", line_end_index, line_start_index, line_no).as_str()
+        )
     }
 }

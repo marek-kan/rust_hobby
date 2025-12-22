@@ -56,7 +56,7 @@ fn render<W: Write>(out: &mut W, rope: &Rope, cursor: &Cursor) -> io::Result<()>
 fn main() -> io::Result<()> {
     let mut stdout = io::stdout();
     let mut buf = TextBuffer::new();
-    let mut cursor = Cursor { line: 0, column: 0 , index: 0};
+    let mut cursor = Cursor::default();
 
     execute!(stdout, terminal::EnterAlternateScreen)?;
     terminal::enable_raw_mode()?;
