@@ -168,7 +168,7 @@ impl RopeNode {
             return Ok((None, None));
         }
 
-        let text_len = root.as_ref().unwrap().text().len();
+        let text_len = root.as_ref().unwrap().text().chars().count();
 
         let left_size = match root.as_ref().unwrap().left() {
             Some(left) => *left.size() as usize,

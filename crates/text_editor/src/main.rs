@@ -22,12 +22,13 @@ fn move_cursor(cursor: &Cursor) -> cursor::MoveTo {
     cursor::MoveTo(cursor.column as u16, cursor.line as u16)
 }
 
-fn debug_state(label: &str, cursor: &Cursor, rope: &Rope) {
-    let text = rope.to_string();
+fn debug_state(label: &str, cursor: &Cursor, buf: &TextBuffer) {
+    let text = buf.data.to_string();
     println!("--- {label} ---");
     println!("cursor = ({}, {})", cursor.line, cursor.column);
     println!("cursor.index() = {}", cursor.index);
     println!("rope.len() = {}", text.len());
+    println!("State: {:?}", buf.state);
     println!("rope = {:?}", text);
     println!();
 }
@@ -52,6 +53,39 @@ fn render<W: Write>(out: &mut W, rope: &Rope, cursor: &Cursor) -> io::Result<()>
     out.flush()?;
     Ok(())
 }
+
+// fn main() -> io::Result<()> {
+//     let mut buf = TextBuffer::new();
+//     let mut cursor = Cursor::default();
+
+//     for ch in vec!['a', '\n', '1', '2', '3'] {
+//         buf = buf.insert(&ch.to_string(), cursor.index).unwrap();
+//         cursor.move_by_char(ch);
+//     };
+    
+//     debug_state("initial", &cursor, &buf);
+
+//     cursor.move_line_up(&buf);
+
+//     debug_state("after move up", &cursor, &buf);
+
+//     cursor.move_line_down(&buf);
+
+//     debug_state("after move down", &cursor, &buf);
+
+//     cursor.move_line_up(&buf);
+//     // buf = buf.insert(&"A", cursor.index).unwrap();
+//     // cursor.move_by_char('A');
+//     for ch in vec!['A', 'B', 'C', 'D', 'E'] {
+//         buf = buf.insert(&ch.to_string(), cursor.index).unwrap();
+//         cursor.move_by_char(ch);
+//     };
+//     cursor.move_line_down(&buf);
+
+//     debug_state("after first insert", &cursor, &buf);
+
+//     Ok(())
+// }
 
 fn main() -> io::Result<()> {
     let mut stdout = io::stdout();
@@ -99,105 +133,3 @@ fn main() -> io::Result<()> {
     execute!(stdout, terminal::LeaveAlternateScreen)?;
     Ok(())
 }
-
-
-// fn read_stdin(buffer: &mut String) -> Result<(), Box<dyn Error>> {
-//     buffer.clear();
-
-//     io::stdin().read_line(buffer)?;
-//     buffer.pop();
-
-//     Ok(())
-// }
-
-// fn main() -> Result<(), Box<dyn Error>> {
-//     let mut buffer = String::new();
-//     let mut text_buffer = Rope::new("");
-//     let mut cursor = Cursor {
-//         line: 0,
-//         column: 0,
-//         index: 0,
-//     };
-
-//     loop {
-//         read_stdin(&mut buffer)?;
-
-//         let action = match buffer.as_str() {
-//             "ML" => Actions::MoveLeft,
-//             "MR" => Actions::MoveRight,
-//             "MU" => Actions::MoveUp,
-//             "MD" => Actions::MoveDown,
-//             "DEL" => Actions::Delete,
-//             "RE" => Actions::Backspace,
-//             "SAVE" => Actions::Save,
-//             "OPEN" => Actions::Open,
-//             _ => Actions::Insert,
-//         };
-
-//         match action {
-//             Actions::Insert => {
-//                 println!("Before insert cursor at: {}", &cursor.index);
-//                 text_buffer = text_buffer
-//                     .insert(&buffer, cursor.index)
-//                     .expect("Failed to insert stdin buffer to text buffer");
-
-//                 cursor.index += buffer.len();
-//             }
-
-//             Actions::MoveLeft => {
-//                 println!("Moving left from {}", &cursor.index);
-//                 cursor.move_inline_left();
-//             }
-
-//             Actions::MoveRight => {
-//                 println!("Moving right from {}", &cursor.index);
-//                 cursor.move_inline_right();
-//             }
-
-//             Actions::Backspace => {
-//                 text_buffer = text_buffer
-//                     .delete(cursor.index - 1, cursor.index)
-//                     .expect("Failed to execute backspace");
-
-//                 cursor.index -= 1;
-//             }
-
-//             Actions::Delete => {
-//                 if let Some(size) = text_buffer.tree_size()
-//                     && cursor.index < size
-//                 {
-//                     text_buffer = text_buffer.delete(cursor.index, cursor.index + 1).unwrap();
-//                 }
-//             }
-
-//             Actions::Save => {
-//                 println!("Filename:");
-
-//                 read_stdin(&mut buffer)?;
-
-//                 let text = text_buffer.to_string();
-
-//                 fs::write(buffer, text)?;
-//                 break;
-//             }
-
-//             Actions::Open => {
-//                 println!("Filename:");
-
-//                 read_stdin(&mut buffer)?;
-
-//                 let text = fs::read_to_string(&buffer)?;
-
-//                 text_buffer = Rope::new(&text);
-//                 cursor.index = text.len();
-//             }
-
-//             _ => todo!(),
-//         }
-
-//         println!("Full text:\n{}", text_buffer);
-//         println!("Cursor at: {}", &cursor.index);
-//     }
-
-//     Ok(())
-// }

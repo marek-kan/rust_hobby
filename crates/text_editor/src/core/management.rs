@@ -4,7 +4,7 @@ use data_structures::binary_tree::{errors::InsertError, rope::Rope};
 
 pub struct TextBuffer {
     pub data: Rope,
-    state: Vec<usize>
+    pub state: Vec<usize>
 }
 
 impl TextBuffer {
@@ -15,9 +15,9 @@ impl TextBuffer {
     pub fn from_string(text: &str) -> Self {
         let mut state = vec![0];
 
-        for (i, c) in text.char_indices() {
+        for (i, c) in text.chars().enumerate() {
             if c == '\n' {
-                state.push(i + 1);
+                state.push(i);
             }
         }
 
@@ -46,21 +46,14 @@ impl TextBuffer {
         let line_no = self.find_line_by_index(index);
 
         let (line_start_index, line_end_index) = self.line_range(line_no);
-        let line_len = line_end_index.checked_sub(line_start_index).expect(
-            format!("Couldn't subtract end({}) - start({}) index at line {}, state len: {}, tree size: {:?}, state: {:?}", line_end_index, line_start_index, line_no, state_len, self.data.tree_size(), self.state).as_str()
-        );
+        let line_len = line_end_index.checked_sub(line_start_index).unwrap();
 
         if text.ends_with("\n") {
 
             if line_no < state_len {
                 // split to two lines
-                let new_line_length = line_len.checked_sub(index).unwrap_or(0);
-                let old_line_length = line_len.checked_sub(new_line_length).unwrap_or(0) + text_len;
-
-                // panic!("{}", format!(
-                //     "Couldn't subtract end({}) - start({}) index at line {}, state len: {}, tree size: {:?}, state: {:?}, newline: {}, oldline: {}", 
-                //     line_end_index, line_start_index, line_no, state_len, self.data.tree_size(), self.state, new_line_length, old_line_length).as_str()
-                // );
+                let new_line_length = line_len.checked_sub(index).unwrap();
+                let old_line_length = line_len.checked_sub(new_line_length).unwrap() + text_len;
                 
                 self.state.insert(line_no+1, new_line_length);
                 self.state[line_no] = old_line_length;
@@ -86,7 +79,7 @@ impl TextBuffer {
             let start = *start_index;
 
             if start >= index {
-                return i;
+                return i.checked_sub(1).unwrap_or(0);
             }
         };
 
@@ -154,23 +147,27 @@ impl Cursor {
     }
 
     pub fn move_line_down(&mut self, text_buffer: &TextBuffer) {
-        if self.line + 1 > text_buffer.line_count() {
+        if self.line + 1 > text_buffer.line_count() - 1 {
             return;
         }
         self.line += 1;
+        let (line_start_index, _) = text_buffer.line_range(self.line);
 
         let cols = self.columns_in_line(text_buffer, self.line);
 
         self.column = cols.min(self.desired_column);
+        self.index = self.column + line_start_index;
     }
 
     pub fn move_line_up(&mut self, text_buffer: &TextBuffer) {
         if self.line > 0 {
             self.line -= 1;
 
+            let (line_start_index, _) = text_buffer.line_range(self.line);
             let cols = self.columns_in_line(text_buffer, self.line);
-            
             self.column = cols.min(self.desired_column);
+
+            self.index = line_start_index + self.column;
         }
     }
 
