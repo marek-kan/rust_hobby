@@ -133,16 +133,19 @@ impl Cursor {
     }
 
     pub fn move_inline_right(&mut self, text_buffer: &TextBuffer) {
-        let cols = self.columns_in_line(text_buffer, self.line);
+        let cols = self.columns_in_line(text_buffer, self.line).checked_sub(1).unwrap_or(0);
 
         if self.column < cols {
             self.column += 1;
+            self.index += 1;
         } else {
             self.line = (self.line+1).min(text_buffer.line_count()-1);
-            self.column = 0;
-        }
+            let (line_start_index, _) = text_buffer.line_range(self.line);
 
-        self.index += 1;
+            self.column = 0;
+            self.index = line_start_index+1;
+        }
+        
         self.desired_column = self.column;
     }
 
@@ -157,6 +160,9 @@ impl Cursor {
 
         self.column = cols.min(self.desired_column);
         self.index = self.column + line_start_index;
+        // if self.line != 0 {
+        //     self.index -= 1;
+        // }
     }
 
     pub fn move_line_up(&mut self, text_buffer: &TextBuffer) {
@@ -168,6 +174,10 @@ impl Cursor {
             self.column = cols.min(self.desired_column);
 
             self.index = line_start_index + self.column;
+
+            if self.line != 0 {
+                self.index += 1;
+            }
         }
     }
 
