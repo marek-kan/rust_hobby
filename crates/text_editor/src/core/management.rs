@@ -156,13 +156,15 @@ impl Cursor {
         self.line += 1;
         let (line_start_index, _) = text_buffer.line_range(self.line);
 
-        let cols = self.columns_in_line(text_buffer, self.line);
+        let mut cols = self.columns_in_line(text_buffer, self.line);
+        
+        if self.line != 0 {
+            cols = cols.checked_sub(1).unwrap_or(0)
+        };
 
         self.column = cols.min(self.desired_column);
-        self.index = self.column + line_start_index;
-        // if self.line != 0 {
-        //     self.index -= 1;
-        // }
+        self.index = self.column + line_start_index + 1;
+
     }
 
     pub fn move_line_up(&mut self, text_buffer: &TextBuffer) {
@@ -170,7 +172,12 @@ impl Cursor {
             self.line -= 1;
 
             let (line_start_index, _) = text_buffer.line_range(self.line);
-            let cols = self.columns_in_line(text_buffer, self.line);
+            let mut cols = self.columns_in_line(text_buffer, self.line);
+
+            if self.line != 0 {
+                cols = cols.checked_sub(1).unwrap_or(0)
+            };
+
             self.column = cols.min(self.desired_column);
 
             self.index = line_start_index + self.column;
