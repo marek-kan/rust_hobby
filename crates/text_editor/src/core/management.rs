@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use data_structures::binary_tree::{errors::InsertError, rope::Rope};
+use data_structures::binary_tree::{errors::{DeleteError, InsertError}, rope::Rope};
 
 
 pub struct TextBuffer {
@@ -73,6 +73,54 @@ impl TextBuffer {
         Ok(self)
     }
 
+    pub fn delete(mut self, index: usize, backspace: bool) -> Result<Self, DeleteError> {
+        if backspace && index == 0 {
+            return Ok(self);
+        }
+        
+        let line_no = self.find_line_by_index(index);
+        let (line_start_index, line_end_index) = self.line_range(line_no);
+        let line_len_before = line_end_index.checked_sub(line_start_index).unwrap();
+        let n_lines = self.line_count() - 1;
+        let max_index = self.state[n_lines] + line_len_before;
+
+        let del_start = if backspace { index.checked_sub(1).unwrap_or(0) } else { index.clone() };
+
+        if index == max_index {
+            return Ok(self)
+        }
+
+        self.data = self.data.delete(del_start, 1)?;
+
+        // update the state
+        if line_no+1 <= n_lines {
+            for i in line_no+1..n_lines+1 {
+                self.state[i] -= 1;
+            }
+        }
+
+        if backspace {
+            match line_len_before.checked_sub(1) {
+                None => {
+                    self.state.remove(line_no);
+                },
+                Some(_) => {
+                    if index-1 == line_start_index && line_no != 0 {
+                        // join with line above
+                        self.state.remove(line_no);
+                    }
+                }
+            }
+        } else {
+             if index == line_end_index && line_no+1 <= n_lines {
+                // join with line below
+                self.state.remove(line_no+1);
+             }
+        };
+
+        Ok(self)
+    }
+
     fn find_line_by_index(&self, index: usize) -> usize {
 
         for (i, start_index) in self.state.iter().enumerate() {
@@ -137,7 +185,11 @@ impl Cursor {
     }
 
     pub fn move_inline_right(&mut self, text_buffer: &TextBuffer) {
-        let cols = self.columns_in_line(text_buffer, self.line).checked_sub(1).unwrap_or(0);
+        let mut cols = self.columns_in_line(text_buffer, self.line);
+
+        if self.line != 0 {
+            cols = cols.checked_sub(1).unwrap_or(0);
+        }
 
         if self.column < cols {
             self.column += 1;

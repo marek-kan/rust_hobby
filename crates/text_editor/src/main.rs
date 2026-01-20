@@ -1,11 +1,6 @@
 use data_structures::binary_tree::rope::Rope;
-use std::error::Error;
 use std::io::Write;
-use std::os::unix::thread;
-use std::sync::mpsc::TryRecvError;
-use std::time::Duration;
 use std::{fs, io};
-use text_editor::core::actions::Actions;
 use text_editor::core::management::{Cursor, TextBuffer};
 
 use crossterm::event::KeyEventKind;
@@ -58,34 +53,66 @@ fn render<W: Write>(out: &mut W, rope: &Rope, cursor: &Cursor) -> io::Result<()>
 //     let mut buf = TextBuffer::new();
 //     let mut cursor = Cursor::default();
 
-//     for ch in vec!['a', '\n', '1', '2', '3'] {
-//         buf = buf.insert(&ch.to_string(), cursor.index).unwrap();
-//         cursor.move_by_char(ch);
-//     };
+//     // for ch in vec!['a', '\n', '1', '2', '3'] {
+//     //     buf = buf.insert(&ch.to_string(), cursor.index).unwrap();
+//     //     cursor.move_by_char(ch);
+//     // };
     
-//     debug_state("initial", &cursor, &buf);
+//     // debug_state("initial", &cursor, &buf);
 
-//     cursor.move_line_up(&buf);
+//     // cursor.move_line_up(&buf);
 
-//     debug_state("after move up", &cursor, &buf);
+//     // debug_state("after move up", &cursor, &buf);
 
-//     cursor.move_line_down(&buf);
+//     // cursor.move_line_down(&buf);
 
-//     debug_state("after move down", &cursor, &buf);
+//     // debug_state("after move down", &cursor, &buf);
 
-//     cursor.move_line_up(&buf);
-//     // buf = buf.insert(&"A", cursor.index).unwrap();
-//     // cursor.move_by_char('A');
-//     for ch in vec!['A', 'B', 'C', 'D', 'E'] {
+//     // cursor.move_line_up(&buf);
+//     // // buf = buf.insert(&"A", cursor.index).unwrap();
+//     // // cursor.move_by_char('A');
+//     // for ch in vec!['A', 'B', 'C', 'D', 'E'] {
+//     //     buf = buf.insert(&ch.to_string(), cursor.index).unwrap();
+//     //     cursor.move_by_char(ch);
+//     // };
+//     // cursor.move_line_down(&buf);
+
+//     // debug_state("after first insert", &cursor, &buf);
+
+//     // Ok(())
+//     for ch in "123\nabc\nABC\n098".chars() {
 //         buf = buf.insert(&ch.to_string(), cursor.index).unwrap();
 //         cursor.move_by_char(ch);
 //     };
-//     cursor.move_line_down(&buf);
 
-//     debug_state("after first insert", &cursor, &buf);
+//     debug_state("init", &cursor, &buf);
+
+//     cursor.move_line_up(&buf);
+//     cursor.move_line_up(&buf);
+
+//     // for i in 0..3 {
+//     //     cursor.move_inline_left(&buf);
+//     // }
+
+//     buf = buf.delete(cursor.index, fal    NewLine,se).unwrap();
+
+//     // buf = buf.insert("a", cursor.index).unwrap();
+//     // cursor.move_by_char('a');
+
+//     debug_state("after delete", &cursor, &buf);
+
+//     // cursor.move_line_up(&buf);
+
+//     // buf = buf.insert("b", cursor.index).unwrap();
+//     // cursor.move_by_char('b');
+
+//     // debug_state("b", &cursor, &buf);
 
 //     Ok(())
+
 // }
+
+
 
 fn main() -> io::Result<()> {
     let mut stdout = io::stdout();
@@ -106,15 +133,25 @@ fn main() -> io::Result<()> {
 
             match key.code {
                 KeyCode::Char(c) => {
-                    // rope = rope.insert(&c.to_string(), cursor.index).unwrap();
                     buf = buf.insert(&c.to_string(), cursor.index).unwrap();
                     cursor.move_by_char(c);
                 }
 
                 KeyCode::Enter => {
-                    // rope = rope.insert("\n", cursor.index).unwrap();
                     buf = buf.insert("\n", cursor.index).unwrap();
                     cursor.move_by_char('\n');
+                }
+
+                KeyCode::Backspace => {
+                    // bc move_inline left moves eventho at 0 index nothing is erased -> jumps to end of line
+                    if cursor.index != 0 {
+                        buf = buf.delete(cursor.index, true).unwrap();
+                        cursor.move_inline_left(&buf);
+                    }
+                }
+
+                KeyCode::Delete => {
+                    buf = buf.delete(cursor.index, false).unwrap();
                 }
 
                 KeyCode::Left => cursor.move_inline_left(&buf),
