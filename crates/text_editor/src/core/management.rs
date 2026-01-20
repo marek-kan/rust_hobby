@@ -126,6 +126,10 @@ impl Cursor {
         } else {
             self.line = self.line.checked_sub(1).unwrap_or(0);
             self.column = self.columns_in_line(text_buffer, self.line);
+
+            if self.line != 0 {
+                self.column = self.column.checked_sub(1).unwrap_or(0);
+            }
         }
 
         self.index = self.index.checked_sub(1).unwrap_or(0) ;
