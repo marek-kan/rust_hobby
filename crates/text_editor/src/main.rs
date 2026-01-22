@@ -1,17 +1,15 @@
 use data_structures::binary_tree::rope::Rope;
+use std::io;
 use std::io::Write;
-use std::{fs, io};
-use text_editor::core::management::{Cursor, TextBuffer};
+use text_editor::core::management::{Cursor, TextBuffer, save_to_path};
 
-use crossterm::event::KeyEventKind;
+use crossterm::event::{KeyEventKind, KeyEventState, KeyModifiers};
 pub use crossterm::{
-    cursor,
+    Command, cursor,
     event::{self, Event, KeyCode, KeyEvent},
     execute, queue, style,
     terminal::{self, Clear, ClearType},
-    Command
 };
-
 
 fn move_cursor(cursor: &Cursor) -> cursor::MoveTo {
     cursor::MoveTo(cursor.column as u16, cursor.line as u16)
@@ -43,7 +41,28 @@ fn render<W: Write>(out: &mut W, rope: &Rope, cursor: &Cursor) -> io::Result<()>
         )?;
     }
 
-    queue!(out, move_cursor(&cursor))?;
+    queue!(out, move_cursor(cursor))?;
+
+    out.flush()?;
+    Ok(())
+}
+
+fn prompt_user<W: Write>(out: &mut W, prompt: &str) -> io::Result<()> {
+    let lines: Vec<&str> = prompt.split('\n').collect();
+    let mut final_row: u16 = 0;
+
+    queue!(out, Clear(ClearType::All))?;
+    for (row, line) in lines.iter().enumerate() {
+        queue!(
+            out,
+            cursor::MoveTo(0, row as u16),
+            Clear(ClearType::CurrentLine),
+            style::Print(line)
+        )?;
+        final_row = row as u16;
+    }
+
+    queue!(out, cursor::MoveTo(0, final_row + 1))?;
 
     out.flush()?;
     Ok(())
@@ -57,7 +76,7 @@ fn render<W: Write>(out: &mut W, rope: &Rope, cursor: &Cursor) -> io::Result<()>
 //     //     buf = buf.insert(&ch.to_string(), cursor.index).unwrap();
 //     //     cursor.move_by_char(ch);
 //     // };
-    
+
 //     // debug_state("initial", &cursor, &buf);
 
 //     // cursor.move_line_up(&buf);
@@ -112,8 +131,6 @@ fn render<W: Write>(out: &mut W, rope: &Rope, cursor: &Cursor) -> io::Result<()>
 
 // }
 
-
-
 fn main() -> io::Result<()> {
     let mut stdout = io::stdout();
     let mut buf = TextBuffer::new();
@@ -131,6 +148,60 @@ fn main() -> io::Result<()> {
                 continue;
             }
 
+            match key {
+                KeyEvent {
+                    code: KeyCode::Char('s'),
+                    modifiers: KeyModifiers::CONTROL,
+                    kind: KeyEventKind::Press,
+                    state: KeyEventState::NONE,
+                } => {
+                    prompt_user(
+                        &mut stdout,
+                        "**Only backspace allowed**\nPlease, enter save filepath:",
+                    )?;
+                    let mut input = String::new();
+
+                    loop {
+                        if let Event::Key(key) = event::read()? {
+                            match key.code {
+                                KeyCode::Char(c) => {
+                                    queue!(&mut stdout, style::Print(c))?;
+                                    stdout.flush()?;
+                                    input.push(c);
+                                }
+                                KeyCode::Backspace => {
+                                    if !input.is_empty() {
+                                        input.pop();
+
+                                        queue!(
+                                            &mut stdout,
+                                            cursor::MoveLeft(1),
+                                            style::Print(" "),
+                                            cursor::MoveLeft(1)
+                                        )?;
+                                        stdout.flush()?;
+                                    }
+                                }
+
+                                KeyCode::Enter => {
+                                    save_to_path(&input, &buf.data)?;
+                                    terminal::disable_raw_mode()?;
+                                    execute!(stdout, terminal::LeaveAlternateScreen)?;
+                                    return Ok(());
+                                }
+
+                                KeyCode::Esc => {
+                                    render(&mut stdout, &buf.data, &cursor)?;
+                                    break;
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+
             match key.code {
                 KeyCode::Char(c) => {
                     buf = buf.insert(&c.to_string(), cursor.index).unwrap();
@@ -145,8 +216,21 @@ fn main() -> io::Result<()> {
                 KeyCode::Backspace => {
                     // bc move_inline left moves eventho at 0 index nothing is erased -> jumps to end of line
                     if cursor.index != 0 {
+                        let line_before = cursor.line;
+                        let columns_before = buf.calculate_columns_in_line(line_before);
+
                         buf = buf.delete(cursor.index, true).unwrap();
-                        cursor.move_inline_left(&buf);
+
+                        if cursor.column != 0 {
+                            cursor.move_inline_left(&buf);
+                        } else {
+                            // joining two lines
+                            cursor.move_to_new_row_after_backspace(
+                                line_before,
+                                columns_before,
+                                &buf,
+                            );
+                        }
                     }
                 }
 
