@@ -1,6 +1,6 @@
 use std::io;
 use text_editor::core::management::{Cursor, TextBuffer, open_from_path, save_to_path};
-use text_editor::ui::{prompt_user, read_line_from_user, render};
+use text_editor::core::ui::{prompt_user, read_line_from_user, render};
 
 use crossterm::event::{KeyEventKind, KeyEventState, KeyModifiers};
 pub use crossterm::{
@@ -12,7 +12,7 @@ pub use crossterm::{
 
 fn main() -> io::Result<()> {
     let mut stdout = io::stdout();
-    let mut buf = TextBuffer::new();
+    let mut buf = TextBuffer::default();
     let mut cursor = Cursor::default();
 
     execute!(stdout, terminal::EnterAlternateScreen)?;
@@ -94,12 +94,18 @@ fn main() -> io::Result<()> {
                         if cursor.column != 0 {
                             cursor.move_inline_left(&buf);
                         } else {
-                            // joining two lines
-                            cursor.move_to_new_row_after_backspace(
+                            if columns_before == 0 {
+                                // special case for empty line
+                                cursor.move_inline_left(&buf);
+                            } else {
+                                // joining two lines
+                                cursor.move_to_new_row_after_backspace(
                                 line_before,
                                 columns_before,
                                 &buf,
                             );
+                            }
+                            
                         }
                     }
                 }

@@ -4,7 +4,7 @@ use data_structures::binary_tree::{
 };
 use std::{
     fs::File,
-    io::{self, Read, Write},
+    io::{self, Write},
     path::Path,
 };
 
@@ -33,6 +33,12 @@ pub fn open_from_path(path: &str) -> io::Result<TextBuffer> {
 pub struct TextBuffer {
     pub data: Rope,
     pub state: Vec<usize>,
+}
+
+impl Default for TextBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TextBuffer {
@@ -85,13 +91,13 @@ impl TextBuffer {
         let line_no = self.find_line_by_index(index);
 
         let (line_start_index, line_end_index) = self.line_range(line_no);
-        let line_len = line_end_index.checked_sub(line_start_index).unwrap();
+        let line_len = line_end_index.saturating_sub(line_start_index);
 
         if text.ends_with("\n") {
             if line_no < state_len {
                 // split to two lines
-                let new_line_length = line_len.checked_sub(index).unwrap();
-                let old_line_length = line_len.checked_sub(new_line_length).unwrap() + text_len;
+                let new_line_length = line_len.saturating_sub(index);
+                let old_line_length = line_len.saturating_sub(new_line_length) + text_len;
 
                 self.state.insert(line_no + 1, new_line_length);
                 self.state[line_no] = old_line_length;
@@ -116,7 +122,7 @@ impl TextBuffer {
 
         let line_no = self.find_line_by_index(index);
         let (line_start_index, line_end_index) = self.line_range(line_no);
-        let line_len_before = line_end_index.checked_sub(line_start_index).unwrap();
+        let line_len_before = line_end_index.saturating_sub(line_start_index);
         let n_lines = self.line_count() - 1;
         let max_index = self.state[n_lines] + line_len_before;
 
@@ -290,13 +296,15 @@ impl Cursor {
     ) {
         // joining two rows, calculating correct new position
         let line_now = text_buffer.find_line_by_index(self.index);
-        let (l_now_start, l_now_end) = text_buffer.line_range(line_now);
-        let columns_now = l_now_end.saturating_sub(l_now_start);
+        let columns_now = text_buffer.calculate_columns_in_line(line_now);
 
         let column = columns_now.saturating_sub(starting_column);
         let line = starting_line.saturating_sub(1);
 
-        self.move_inline_left(text_buffer);
+        if column > 0 {
+            self.move_inline_left(text_buffer);
+        };
+        
         self.column = column;
         self.line = line;
     }
