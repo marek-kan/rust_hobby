@@ -4,7 +4,7 @@ use data_structures::binary_tree::{
 };
 use std::{
     fs::File,
-    io::{self, Write},
+    io::{self, Read, Write},
     path::Path,
 };
 
@@ -22,6 +22,12 @@ pub fn save_to_path(path: &str, data: &Rope) -> io::Result<()> {
 
     file.flush()?;
     Ok(())
+}
+
+pub fn open_from_path(path: &str) -> io::Result<TextBuffer> {
+    let path = Path::new(path);
+    let text = std::fs::read_to_string(path)?;
+    Ok(TextBuffer::from_string(text.as_str()))
 }
 
 pub struct TextBuffer {

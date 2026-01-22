@@ -1,7 +1,6 @@
-use data_structures::binary_tree::rope::Rope;
 use std::io;
-use std::io::Write;
-use text_editor::core::management::{Cursor, TextBuffer, save_to_path};
+use text_editor::core::management::{Cursor, TextBuffer, open_from_path, save_to_path};
+use text_editor::ui::{prompt_user, read_line_from_user, render};
 
 use crossterm::event::{KeyEventKind, KeyEventState, KeyModifiers};
 pub use crossterm::{
@@ -10,126 +9,6 @@ pub use crossterm::{
     execute, queue, style,
     terminal::{self, Clear, ClearType},
 };
-
-fn move_cursor(cursor: &Cursor) -> cursor::MoveTo {
-    cursor::MoveTo(cursor.column as u16, cursor.line as u16)
-}
-
-fn debug_state(label: &str, cursor: &Cursor, buf: &TextBuffer) {
-    let text = buf.data.to_string();
-    println!("--- {label} ---");
-    println!("cursor = ({}, {})", cursor.line, cursor.column);
-    println!("cursor.index() = {}", cursor.index);
-    println!("rope.len() = {}", text.len());
-    println!("State: {:?}", buf.state);
-    println!("rope = {:?}", text);
-    println!();
-}
-
-fn render<W: Write>(out: &mut W, rope: &Rope, cursor: &Cursor) -> io::Result<()> {
-    let text = rope.to_string();
-    let lines: Vec<&str> = text.split('\n').collect();
-
-    queue!(out, Clear(ClearType::All))?;
-
-    for (row, line) in lines.iter().enumerate() {
-        queue!(
-            out,
-            cursor::MoveTo(0, row as u16),
-            Clear(ClearType::CurrentLine),
-            style::Print(line)
-        )?;
-    }
-
-    queue!(out, move_cursor(cursor))?;
-
-    out.flush()?;
-    Ok(())
-}
-
-fn prompt_user<W: Write>(out: &mut W, prompt: &str) -> io::Result<()> {
-    let lines: Vec<&str> = prompt.split('\n').collect();
-    let mut final_row: u16 = 0;
-
-    queue!(out, Clear(ClearType::All))?;
-    for (row, line) in lines.iter().enumerate() {
-        queue!(
-            out,
-            cursor::MoveTo(0, row as u16),
-            Clear(ClearType::CurrentLine),
-            style::Print(line)
-        )?;
-        final_row = row as u16;
-    }
-
-    queue!(out, cursor::MoveTo(0, final_row + 1))?;
-
-    out.flush()?;
-    Ok(())
-}
-
-// fn main() -> io::Result<()> {
-//     let mut buf = TextBuffer::new();
-//     let mut cursor = Cursor::default();
-
-//     // for ch in vec!['a', '\n', '1', '2', '3'] {
-//     //     buf = buf.insert(&ch.to_string(), cursor.index).unwrap();
-//     //     cursor.move_by_char(ch);
-//     // };
-
-//     // debug_state("initial", &cursor, &buf);
-
-//     // cursor.move_line_up(&buf);
-
-//     // debug_state("after move up", &cursor, &buf);
-
-//     // cursor.move_line_down(&buf);
-
-//     // debug_state("after move down", &cursor, &buf);
-
-//     // cursor.move_line_up(&buf);
-//     // // buf = buf.insert(&"A", cursor.index).unwrap();
-//     // // cursor.move_by_char('A');
-//     // for ch in vec!['A', 'B', 'C', 'D', 'E'] {
-//     //     buf = buf.insert(&ch.to_string(), cursor.index).unwrap();
-//     //     cursor.move_by_char(ch);
-//     // };
-//     // cursor.move_line_down(&buf);
-
-//     // debug_state("after first insert", &cursor, &buf);
-
-//     // Ok(())
-//     for ch in "123\nabc\nABC\n098".chars() {
-//         buf = buf.insert(&ch.to_string(), cursor.index).unwrap();
-//         cursor.move_by_char(ch);
-//     };
-
-//     debug_state("init", &cursor, &buf);
-
-//     cursor.move_line_up(&buf);
-//     cursor.move_line_up(&buf);
-
-//     // for i in 0..3 {
-//     //     cursor.move_inline_left(&buf);
-//     // }
-
-//     buf = buf.delete(cursor.index, fal    NewLine,se).unwrap();
-
-//     // buf = buf.insert("a", cursor.index).unwrap();
-//     // cursor.move_by_char('a');
-
-//     debug_state("after delete", &cursor, &buf);
-
-//     // cursor.move_line_up(&buf);
-
-//     // buf = buf.insert("b", cursor.index).unwrap();
-//     // cursor.move_by_char('b');
-
-//     // debug_state("b", &cursor, &buf);
-
-//     Ok(())
-
-// }
 
 fn main() -> io::Result<()> {
     let mut stdout = io::stdout();
@@ -159,44 +38,35 @@ fn main() -> io::Result<()> {
                         &mut stdout,
                         "**Only backspace allowed**\nPlease, enter save filepath:",
                     )?;
-                    let mut input = String::new();
 
-                    loop {
-                        if let Event::Key(key) = event::read()? {
-                            match key.code {
-                                KeyCode::Char(c) => {
-                                    queue!(&mut stdout, style::Print(c))?;
-                                    stdout.flush()?;
-                                    input.push(c);
-                                }
-                                KeyCode::Backspace => {
-                                    if !input.is_empty() {
-                                        input.pop();
+                    if let Some(path) = read_line_from_user(&mut stdout)? {
+                        save_to_path(&path, &buf.data)?;
 
-                                        queue!(
-                                            &mut stdout,
-                                            cursor::MoveLeft(1),
-                                            style::Print(" "),
-                                            cursor::MoveLeft(1)
-                                        )?;
-                                        stdout.flush()?;
-                                    }
-                                }
+                        terminal::disable_raw_mode()?;
+                        execute!(stdout, terminal::LeaveAlternateScreen)?;
 
-                                KeyCode::Enter => {
-                                    save_to_path(&input, &buf.data)?;
-                                    terminal::disable_raw_mode()?;
-                                    execute!(stdout, terminal::LeaveAlternateScreen)?;
-                                    return Ok(());
-                                }
+                        return Ok(());
+                    } else {
+                        render(&mut stdout, &buf.data, &cursor)?;
+                    }
+                }
+                KeyEvent {
+                    code: KeyCode::Char('o'),
+                    modifiers: KeyModifiers::CONTROL,
+                    kind: KeyEventKind::Press,
+                    state: KeyEventState::NONE,
+                } => {
+                    prompt_user(
+                        &mut stdout,
+                        "**Only backspace allowed**\nPlease, enter filepath:",
+                    )?;
 
-                                KeyCode::Esc => {
-                                    render(&mut stdout, &buf.data, &cursor)?;
-                                    break;
-                                }
-                                _ => {}
-                            }
-                        }
+                    if let Some(path) = read_line_from_user(&mut stdout)? {
+                        buf = open_from_path(&path)?;
+                        render(&mut stdout, &buf.data, &cursor)?;
+                        continue;
+                    } else {
+                        render(&mut stdout, &buf.data, &cursor)?;
                     }
                 }
                 _ => {}
