@@ -98,6 +98,62 @@ data_structures = { path = "../data_structures" }
 cargo run -p text_editor
 ```
 
+**If you downloaded binary from a release:**
+
+**MacOS**:
+```
+chmod +x text_editor-macOS
+xattr -d com.apple.quarantine text_editor-macOS
+./text_editor-macOS
+```
+
+**Linux**
+```
+chmod +x text_editor-Linux
+./text_editor-Linux
+```
+
+**Windows**
+If Windows prevents execution:
+
+ 1) Right-click the .exe
+ 2) Select Properties
+ 3) Check Unblock
+ 4) Click OK
+
+Alternatively, you may see a “Windows protected your PC” warning, click More info → Run anyway.
+
+#### Controls overview
+
+*Text input:*
+
+**Character keys:** insert characters at the cursor
+
+**Enter:** insert a newline
+
+**Backspace:** delete character before the cursor
+
+**Delete:** delete character at the cursor
+
+*Cursor movement:*
+
+**←** / **→**: move cursor left / right
+
+**↑** / **↓**: move cursor up / down between lines
+
+*File operations:*
+
+**Ctrl + S:** save file
+Prompts for a filepath (only backspace allowed while typing).
+Saving exits the editor.
+
+**Ctrl + O:** open file
+Prompts for a filepath and loads the file into the editor.
+
+*Exit:*
+
+**Esc:** exit the editor without saving
+
 ---
 
 **Goals of the Project:**
