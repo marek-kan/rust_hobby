@@ -91,7 +91,7 @@ impl RopeNode {
             left: None,
             right: None,
             priority: rand::random(),
-            subtree_size: text.len() as i64,
+            subtree_size: text.chars().count() as i64,
         }
     }
 
@@ -133,7 +133,7 @@ impl RopeNode {
             sum += n.size()
         }
 
-        self.subtree_size = self.text().len() as i64 + sum;
+        self.subtree_size = self.text().chars().count() as i64 + sum;
     }
 
     pub(crate) fn join(left: Link<RopeNode>, right: Link<RopeNode>) -> Link<RopeNode> {
@@ -168,7 +168,8 @@ impl RopeNode {
             return Ok((None, None));
         }
 
-        let text_len = root.as_ref().unwrap().text().len();
+        let text_len = root.as_ref().unwrap().text().chars().count();
+
         let left_size = match root.as_ref().unwrap().left() {
             Some(left) => *left.size() as usize,
             None => 0,
@@ -186,9 +187,11 @@ impl RopeNode {
             return Ok((left_sub, root));
         }
 
-        if index > left_size.strict_add(text_len) {
+        if index >= left_size.strict_add(text_len) {
             let right = node.right.take();
-            let (left_sub, right_sub) = Self::split(right, index)?;
+            let right_index = index - left_size - text_len;
+
+            let (left_sub, right_sub) = Self::split(right, right_index)?;
 
             node.right = left_sub;
             node.recalculate_size();

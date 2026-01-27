@@ -1,0 +1,12 @@
+[package]
+name = "text_editor"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+crossterm = "0.29.0"
+data_structures = { path = "../data_structures" }
