@@ -36,7 +36,7 @@ jobs:
 
       - name: Rename binary (Windows)
         if: runner.os == 'Windows'
-        run: ren target\release\text_editor.exe text_editor-Windows.exe
+        run: move target\release\text_editor.exe text_editor-Windows.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
