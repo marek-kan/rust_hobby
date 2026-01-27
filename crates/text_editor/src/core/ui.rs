@@ -1,5 +1,4 @@
-use crate::core::management::Cursor;
-use data_structures::binary_tree::rope::Rope;
+use crate::core::management::{Cursor, TextBuffer, Viewport};
 use std::io;
 use std::io::Write;
 
@@ -10,17 +9,28 @@ pub use crossterm::{
     terminal::{self, Clear, ClearType},
 };
 
-pub fn move_cursor(cursor: &Cursor) -> cursor::MoveTo {
-    cursor::MoveTo(cursor.column as u16, cursor.line as u16)
+pub fn move_cursor(line: usize, column: usize) -> cursor::MoveTo {
+    cursor::MoveTo(column as u16, line as u16)
 }
 
-pub fn render<W: Write>(out: &mut W, rope: &Rope, cursor: &Cursor) -> io::Result<()> {
-    let text = rope.to_string();
+pub fn render<W: Write>(
+    out: &mut W,
+    buf: &TextBuffer,
+    cursor: &Cursor,
+    viewport: &mut Viewport,
+) -> io::Result<()> {
+    let text = buf.data.to_string();
     let lines: Vec<&str> = text.split('\n').collect();
+
+    let (_, sc_height) = terminal::size()?; // 1 indexed 
+    let screen_rows = sc_height.saturating_sub(1) as usize;
+    viewport.adjust_viewport(cursor, screen_rows);
+
+    let end = (viewport.row_offset + screen_rows + 1).min(buf.line_count());
 
     queue!(out, Clear(ClearType::All))?;
 
-    for (row, line) in lines.iter().enumerate() {
+    for (row, line) in lines[viewport.row_offset..end].iter().enumerate() {
         queue!(
             out,
             cursor::MoveTo(0, row as u16),
@@ -29,7 +39,9 @@ pub fn render<W: Write>(out: &mut W, rope: &Rope, cursor: &Cursor) -> io::Result
         )?;
     }
 
-    queue!(out, move_cursor(cursor))?;
+    let viewport_adjusted_line = cursor.line.saturating_sub(viewport.row_offset);
+
+    queue!(out, move_cursor(viewport_adjusted_line, cursor.column))?;
 
     out.flush()?;
     Ok(())

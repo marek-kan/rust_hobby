@@ -1,5 +1,5 @@
 use std::io;
-use text_editor::core::management::{Cursor, TextBuffer, open_from_path, save_to_path};
+use text_editor::core::management::{Cursor, TextBuffer, Viewport, open_from_path, save_to_path};
 use text_editor::core::ui::{prompt_user, read_line_from_user, render};
 
 use crossterm::event::{KeyEventKind, KeyEventState, KeyModifiers};
@@ -14,12 +14,13 @@ fn main() -> io::Result<()> {
     let mut stdout = io::stdout();
     let mut buf = TextBuffer::default();
     let mut cursor = Cursor::default();
+    let mut viewport = Viewport::default();
 
     execute!(stdout, terminal::EnterAlternateScreen)?;
     terminal::enable_raw_mode()?;
 
     loop {
-        render(&mut stdout, &buf.data, &cursor)?;
+        render(&mut stdout, &buf, &cursor, &mut viewport)?;
 
         let event = event::read()?;
         if let Event::Key(key) = event {
@@ -47,7 +48,7 @@ fn main() -> io::Result<()> {
 
                         return Ok(());
                     } else {
-                        render(&mut stdout, &buf.data, &cursor)?;
+                        render(&mut stdout, &buf, &cursor, &mut viewport)?;
                     }
                 }
                 KeyEvent {
@@ -63,10 +64,10 @@ fn main() -> io::Result<()> {
 
                     if let Some(path) = read_line_from_user(&mut stdout)? {
                         buf = open_from_path(&path)?;
-                        render(&mut stdout, &buf.data, &cursor)?;
+                        render(&mut stdout, &buf, &cursor, &mut viewport)?;
                         continue;
                     } else {
-                        render(&mut stdout, &buf.data, &cursor)?;
+                        render(&mut stdout, &buf, &cursor, &mut viewport)?;
                     }
                 }
                 _ => {}
@@ -93,19 +94,16 @@ fn main() -> io::Result<()> {
 
                         if cursor.column != 0 {
                             cursor.move_inline_left(&buf);
+                        } else if columns_before == 0 {
+                            // special case for empty line
+                            cursor.move_inline_left(&buf);
                         } else {
-                            if columns_before == 0 {
-                                // special case for empty line
-                                cursor.move_inline_left(&buf);
-                            } else {
-                                // joining two lines
-                                cursor.move_to_new_row_after_backspace(
+                            // joining two lines
+                            cursor.move_to_new_row_after_backspace(
                                 line_before,
                                 columns_before,
                                 &buf,
                             );
-                            }
-                            
                         }
                     }
                 }

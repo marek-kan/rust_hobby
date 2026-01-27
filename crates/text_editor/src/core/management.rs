@@ -304,7 +304,7 @@ impl Cursor {
         if column > 0 {
             self.move_inline_left(text_buffer);
         };
-        
+
         self.column = column;
         self.line = line;
     }
@@ -330,5 +330,21 @@ impl Cursor {
                     line_end_index, line_start_index, line_no
                 )
             })
+    }
+}
+
+#[derive(Default)]
+pub struct Viewport {
+    pub row_offset: usize,
+    pub col_offset: usize,
+}
+
+impl Viewport {
+    pub fn adjust_viewport(&mut self, cursor: &Cursor, screen_rows: usize) {
+        if cursor.line < self.row_offset {
+            self.row_offset = cursor.line;
+        } else if cursor.line > self.row_offset + screen_rows {
+            self.row_offset = cursor.line - screen_rows;
+        }
     }
 }
