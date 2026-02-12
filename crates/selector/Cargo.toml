@@ -1,0 +1,21 @@
+[package]
+name = "selector"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+
+[lints.rust]
+unsafe_code = "allow"
+
+[dependencies]
+ndarray = { version = "0.17.2", features = ["serde"] }
+ndarray-rand = "0.16.0"
+polars = { version = "0.53.0", features = ["lazy"] }
+
+ndarray-linalg = { version = "0.18.1", default-features = false }
+
+[features]
+default = []
+
+openblas = ["ndarray-linalg/openblas-static"]
+intel-mkl = ["ndarray-linalg/intel-mkl-static"]
