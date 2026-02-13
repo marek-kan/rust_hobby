@@ -2,7 +2,7 @@ use ndarray::prelude::*;
 use ndarray_rand::rand;
 use ndarray_rand::rand_distr::{Bernoulli, Distribution};
 use polars::prelude::*;
-use selector::get_random_normal;
+use selector::*;
 
 pub fn pl() -> Result<(), PolarsError> {
     // let file = std::fs::File::open("some_data.csv")?;
@@ -35,6 +35,7 @@ pub fn main() {
 
     let logits = 2.0 * &z1 + 1.5 * &z2;
     let p = 1.0 / (1.0 + (-1.0 * &logits).exp());
+    let w = Array::ones((N, 1));
 
     let y_classif: Array2<i32> = p.mapv(|prob| {
         let bernoulli = Bernoulli::new(prob).unwrap();
@@ -46,4 +47,10 @@ pub fn main() {
     });
 
     println!("{}", &y_classif.slice(s![2..5, ..]));
+
+    let w_inner = weighted_inner(&z1, &logits, &w);
+    println!("WI {}", w_inner);
+
+    let norm = weighted_norm(&z1, &w);
+    println!("Norm {}", norm);
 }
