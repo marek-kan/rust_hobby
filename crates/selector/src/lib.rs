@@ -1,10 +1,5 @@
-use core::f64;
-
 use ndarray::{Data, linalg::Dot, prelude::*};
-use ndarray_rand::{
-    RandomExt,
-    rand_distr::{Normal, num_traits::ToPrimitive},
-};
+use ndarray_rand::{RandomExt, rand_distr::Normal};
 
 const EPS: f64 = 1e-12;
 
@@ -68,51 +63,77 @@ pub fn residual_ratio(r_x: &Array2<f64>, r_y: &Array2<f64>, w: &Array2<f64>) -> 
 }
 
 #[derive(Debug)]
-enum LogisticRegressionError {
+pub enum LogisticRegressionError {
     NotFitted,
-    FitError,
 }
 
 pub struct LogisticRegression {
     max_iter: usize,
     alpha: f64,
     learning_rate: f64,
-    coeff: Option<Array1<f64>>,
-    is_fitted: bool,
+    pub coeff: Option<Array1<f64>>,
+    pub intercept: Option<f64>,
+    means: Option<Array1<f64>>,
+    stds: Option<Array1<f64>>,
+    pub losses: Vec<f64>,
 }
 
 impl LogisticRegression {
-    fn new(max_iter: usize, alpha: f64, learning_rate: f64) -> Self {
+    pub fn new(max_iter: usize, alpha: f64, learning_rate: f64) -> Self {
         LogisticRegression {
             max_iter,
             alpha,
             learning_rate,
             coeff: None,
-            is_fitted: false,
+            intercept: None,
+            means: None,
+            stds: None,
+            losses: vec![],
         }
     }
 
-    fn predict(&self, X: &Array2<f64>) -> Result<Array2<f64>, LogisticRegressionError> {
-        // if !self.is_fitted {
-        //     return Err(LogisticRegressionError::NotFitted);
-        // }
+    pub fn is_fitted(&self) -> bool {
+        self.coeff.is_some()
+    }
 
-        if let Some(c) = &self.coeff {
-            let z = X.dot(&c.view().insert_axis(Axis(1)));
-            let pred = 1.0 / (1.0 + (-1.0 * &z).exp());
-            Ok(pred.mapv(|x| x.max(EPS).min(1.0 - EPS)))
+    pub fn predict(&self, X: &Array2<f64>) -> Result<Array2<f64>, LogisticRegressionError> {
+        if self.is_fitted() {
+            let mu = self.means.as_ref().unwrap();
+            let s = self.stds.as_ref().unwrap();
+
+            let x_std = (X - mu) / s;
+
+            return self.predict_standardized(&x_std);
         } else {
             Err(LogisticRegressionError::NotFitted)
         }
     }
 
-    fn loss(
+    fn predict_standardized(
         &self,
         X: &Array2<f64>,
+    ) -> Result<Array2<f64>, LogisticRegressionError> {
+        let coeff = self
+            .coeff
+            .as_ref()
+            .ok_or(LogisticRegressionError::NotFitted)?;
+        let mut z = X.dot(&coeff.view().insert_axis(Axis(1)));
+
+        if let Some(intercept) = self.intercept {
+            // we might not have intercept
+            z += intercept;
+        }
+
+        let pred = 1.0 / (1.0 + (-1.0 * &z).exp());
+        Ok(pred.mapv(|x| x.max(EPS).min(1.0 - EPS)))
+    }
+
+    fn loss(
+        &self,
+        y_hat: &Array2<f64>,
         y: &Array2<f64>,
         n: usize,
     ) -> Result<f64, LogisticRegressionError> {
-        let y_hat = self.predict(X)?;
         let c = self.coeff.as_ref().unwrap(); // if no coeffs `predict` throws Error
         let _n = n as f64;
 
@@ -129,51 +150,61 @@ impl LogisticRegression {
         y: &Array2<f64>,
         n: usize,
     ) -> Result<(), LogisticRegressionError> {
-        let pred = self.predict(X)?;
-        let diff_pred = y - &pred;
+        let pred = self.predict_standardized(X)?;
+        let diff_pred = &pred - y;
         let n_multiplier = 1.0 / n as f64;
 
         // Gradients
         let grad0 = self.learning_rate * n_multiplier * diff_pred.sum();
-        let grad1: Array2<f64> =
-            self.learning_rate * n_multiplier * X.slice(s![.., 1..]).t().dot(&diff_pred);
+        let grad1: Array2<f64> = self.learning_rate * n_multiplier * X.t().dot(&diff_pred);
         let decay = 1.0 - self.learning_rate * self.alpha * n_multiplier;
 
         // Update
         let weights = self.coeff.as_mut().unwrap();
+        if let Some(intercept) = self.intercept.as_mut() {
+            *intercept -= grad0;
+        };
 
-        weights[0] -= grad0;
-
-        let mut w_slice = weights.slice_mut(s![1..]);
-        w_slice *= decay;
-        w_slice -= &grad1.column(0);
+        *weights *= decay;
+        *weights -= &grad1.column(0);
 
         Ok(())
     }
 
-    fn fit(&mut self, X: &Array2<f64>, y: &Array2<i64>) -> Result<(), LogisticRegressionError> {
+    pub fn fit(&mut self, X: &Array2<f64>, y: &Array2<i32>) -> Result<(), LogisticRegressionError> {
         let n = X.nrows();
-        let ones = Array::ones((n, 1));
-        let X_w_intercept = ndarray::concatenate(Axis(1), &[ones.view(), X.view()]).unwrap();
         let y_float = y.mapv(|v| v as f64);
 
-        self.coeff = Some(Array::zeros(X_w_intercept.ncols()));
+        self.coeff = Some(Array::zeros(X.ncols()));
+        self.intercept = Some(0.0);
+
+        let mu = X
+            .mean_axis(Axis(0))
+            .expect("Failed to calculate mean of X on axis 0");
+        let std = X.std_axis(Axis(0), 0.);
+
+        let x_std = (X - &mu) / &std;
+
+        self.means = Some(mu);
+        self.stds = Some(std);
 
         let mut last_loss = f64::INFINITY;
 
-        for iter in 0..self.max_iter {
-            self.update(&X_w_intercept, &y_float, n)?;
+        for _ in 0..self.max_iter {
+            self.update(&x_std, &y_float, n)?;
 
-            let loss = self.loss(&X_w_intercept, &y_float, n)?;
+            let y_hat = self.predict_standardized(&x_std)?;
 
-            if last_loss - loss <= 1e-6 {
+            let loss = self.loss(&y_hat, &y_float, n)?;
+            self.losses.push(loss);
+
+            if (last_loss - loss).abs() <= 1e-6 {
                 break;
             } else {
                 last_loss = loss
             }
         }
 
-        self.is_fitted = true;
         Ok(())
     }
 }
@@ -185,15 +216,14 @@ impl Default for LogisticRegression {
             alpha: 1.0,
             learning_rate: 0.05,
             coeff: None,
-            is_fitted: false,
+            intercept: None,
+            means: None,
+            stds: None,
+            losses: vec![],
         }
     }
 }
 /*
-store intercept separately -> z = intercept + X.dot(coeffs)
-    Helps with always adding ones vector
-    
-is_fitted is redundant -> coeff.is_some()
 
 
 */
@@ -203,40 +233,44 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_fit_predict_runs() {
-        let X: Array2<f64> = array![[0.0], [1.0], [2.0], [3.0]];
+    fn test_fitpredict_standardized_runs() {
+        let X: Array2<f64> = array![[0.0], [1.0], [0.5], [5.0], [3.0]];
 
-        let y: Array2<i64> = array![[0], [0], [1], [1]];
+        let y: Array2<i32> = array![[0], [0], [0], [1], [1]];
 
         let mut model = LogisticRegression::default();
-        model.fit(&X, &y);
+        let _ = model.fit(&X, &y);
 
-        let ones = ndarray::Array::ones((X.nrows(), 1));
-        let X_w_intercept =
-            ndarray::concatenate(ndarray::Axis(1), &[ones.view(), X.view()]).unwrap();
+        let pred = model.predict(&X).unwrap();
 
-        let pred = model.predict(&X_w_intercept).unwrap();
-
-        assert_eq!(pred.nrows(), 4);
+        assert_eq!(pred.nrows(), y.nrows());
 
         for p in pred.iter() {
             assert!(*p > 0.0 && *p < 1.0);
         }
+
+        let mu = model.means.unwrap();
+        let std = model.stds.unwrap();
+
+        assert!(mu[0] == 1.9);
+        assert!(185 == (std[0] * 100.0).round() as i64);
     }
 
     #[test]
     fn test_coefficients_change() {
-        let X: Array2<f64> = array![[0.0], [1.0], [2.0], [3.0]];
+        let X: Array2<f64> = array![[0.0], [1.0], [0.5], [5.0], [3.0]];
 
-        let y: Array2<i64> = array![[0], [0], [1], [1]];
+        let y: Array2<i32> = array![[0], [0], [0], [1], [1]];
 
         let mut model = LogisticRegression::default();
-        model.fit(&X, &y);
+        let _ = model.fit(&X, &y);
 
         let coeff = model.coeff.unwrap();
 
         let norm: f64 = coeff.iter().map(|v| v.abs()).sum();
+        let intercept = model.intercept.unwrap().abs();
 
+        assert!(intercept > 0.0);
         assert!(norm > 0.0);
     }
 }

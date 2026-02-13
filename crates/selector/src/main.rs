@@ -1,6 +1,6 @@
 use ndarray::prelude::*;
-use ndarray_rand::rand;
 use ndarray_rand::rand_distr::{Bernoulli, Distribution};
+use ndarray_rand::{RandomExt, rand};
 use polars::prelude::*;
 use selector::*;
 
@@ -46,11 +46,29 @@ pub fn main() {
         }
     });
 
-    println!("{}", &y_classif.slice(s![2..5, ..]));
+    println!("{}", &y_classif.slice(s![0..15, ..]));
 
     let w_inner = weighted_inner(&z1, &logits, &w);
     println!("WI {}", w_inner);
 
     let norm = weighted_norm(&z1, &w);
     println!("Norm {}", norm);
+
+    let X = ndarray::concatenate(Axis(1), &[z1.view(), z2.view()]).unwrap();
+
+    let mut model = LogisticRegression::default();
+    let _ = model.fit(&X, &y_classif).unwrap();
+
+    let pred = model.predict(&X).unwrap();
+
+    // println!("{}", pred.sample_axis(Axis(0), 10, ndarray_rand::SamplingStrategy::WithoutReplacement));
+    println!("{}", &pred.slice(s![0..15, ..]));
+
+    let c = model.coeff.unwrap();
+    let i = model.intercept.unwrap();
+    let loss = model.losses;
+
+    println!("Coeffs: {}", c);
+    println!("intercept: {i}");
+    println!("Losses: {:?}, {}", loss, loss.len())
 }
