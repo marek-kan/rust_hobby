@@ -132,17 +132,19 @@ pub struct LogisticRegression {
     max_iter: usize,
     alpha: f64,
     learning_rate: f64,
+    r_tol: f64,
     pub coeff: Option<Array1<f64>>,
     pub intercept: Option<f64>,
     pub losses: Vec<f64>,
 }
 
 impl LogisticRegression {
-    pub fn new(max_iter: usize, alpha: f64, learning_rate: f64) -> Self {
+    pub fn new(max_iter: usize, alpha: f64, learning_rate: f64, r_tol: f64) -> Self {
         LogisticRegression {
             max_iter,
             alpha,
             learning_rate,
+            r_tol,
             coeff: None,
             intercept: None,
             losses: vec![],
@@ -153,12 +155,18 @@ impl LogisticRegression {
         self.coeff.is_some()
     }
 
-    pub fn predict(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
-        let proba = self.predict_proba(X)?;
-        Ok(proba.round())
+    fn sigmoid(&self, z: &Array2<f64>) -> Array2<f64> {
+        z.mapv(|z| {
+            if z >= 0.0 {
+                1.0 / (1.0 + (-z).exp())
+            } else {
+                let ez = z.exp();
+                ez / (1.0 + ez)
+            }
+        })
     }
 
-    pub fn predict_proba(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
+    pub fn decision_boundary(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
         let coeff = self.coeff.as_ref().ok_or(FitError::NotFitted)?;
         let mut z = X.dot(&coeff.view().insert_axis(Axis(1)));
 
@@ -167,30 +175,62 @@ impl LogisticRegression {
             z += intercept;
         }
 
-        let pred = 1.0 / (1.0 + (-1.0 * &z).exp());
+        Ok(z)
+    }
+
+    pub fn predict(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
+        let proba = self.predict_proba(X)?;
+
+        Ok(proba.mapv(|p| if p >= 0.5 { 1.0 } else { 0.0 }))
+    }
+
+    pub fn predict_proba(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
+        let z = self.decision_boundary(X)?;
+
+        let pred = self.sigmoid(&z);
         Ok(pred.mapv(|x| x.max(EPS).min(1.0 - EPS)))
     }
 
-    fn loss(&self, y_hat: &Array2<f64>, y: &Array2<f64>, n: usize) -> Result<f64, FitError> {
+    fn loss(
+        &self,
+        logits: &Array2<f64>,
+        y: &Array2<f64>,
+        sample_weights: &Array2<f64>,
+    ) -> Result<f64, FitError> {
         let c = self.coeff.as_ref().ok_or(FitError::NotFitted)?;
-        let _n = n as f64;
+        let weight_sum = sample_weights.sum();
 
-        let base_loss = 1.0 / _n * (-1.0 * y * y_hat.ln() - (1.0 - y) * (1.0 - y_hat).ln());
+        // logaddexp(0, z) = ln(1 + exp(z))  (stable form below)
+        let log_term = logits.mapv(|z| {
+            if z > 0.0 {
+                z + (-z).exp().ln_1p()
+            } else {
+                z.exp().ln_1p()
+            }
+        });
 
-        let reg_loss = base_loss + self.alpha / (2.0 * _n) * c.t().dot(&c.pow2());
+        let base_loss = (sample_weights * (log_term - y * logits)).sum() / weight_sum;
 
-        Ok(reg_loss.sum())
+        let reg_loss = self.alpha / (2.0 * weight_sum) * c.pow2().sum();
+
+        Ok(base_loss + reg_loss)
     }
 
-    fn update(&mut self, X: &Array2<f64>, y: &Array2<f64>, n: usize) -> Result<(), FitError> {
-        let pred = self.predict_proba(X)?;
-        let diff_pred = &pred - y;
-        let n_multiplier = 1.0 / n as f64;
+    fn update(
+        &mut self,
+        X: &Array2<f64>,
+        logits: &Array2<f64>,
+        y: &Array2<f64>,
+        sample_weights: &Array2<f64>,
+    ) -> Result<(), FitError> {
+        let pred = self.sigmoid(logits);
+        let diff_pred = (&pred - y) * sample_weights;
+        let norm = 1.0 / sample_weights.sum();
 
         // Gradients
-        let grad0 = self.learning_rate * n_multiplier * diff_pred.sum();
-        let grad1: Array2<f64> = self.learning_rate * n_multiplier * X.t().dot(&diff_pred);
-        let decay = 1.0 - self.learning_rate * self.alpha * n_multiplier;
+        let grad0 = self.learning_rate * norm * diff_pred.sum();
+        let grad1: Array2<f64> = self.learning_rate * norm * X.t().dot(&diff_pred);
+        let decay = 1.0 - self.learning_rate * self.alpha * norm;
 
         // Update
         let weights = self.coeff.as_mut().unwrap();
@@ -204,9 +244,19 @@ impl LogisticRegression {
         Ok(())
     }
 
-    pub fn fit(&mut self, X: &Array2<f64>, y: &Array2<i32>) -> Result<(), FitError> {
+    pub fn fit(
+        &mut self,
+        X: &Array2<f64>,
+        y: &Array2<i32>,
+        sample_weights: Option<Array2<f64>>,
+    ) -> Result<(), FitError> {
         let n = X.nrows();
         let y_float = y.mapv(|v| v as f64);
+
+        let sw = match sample_weights {
+            Some(sw) => sw,
+            None => Array::ones((n, 1)),
+        };
 
         self.coeff = Some(Array::zeros(X.ncols()));
         self.intercept = Some(0.0);
@@ -214,16 +264,15 @@ impl LogisticRegression {
         let mut last_loss = f64::INFINITY;
 
         for _ in 0..self.max_iter {
-            self.update(&X, &y_float, n)?;
+            let logits_hat = self.decision_boundary(&X)?;
 
-            let y_hat = self.predict_proba(&X)?;
-
-            let loss = self.loss(&y_hat, &y_float, n)?;
+            let loss = self.loss(&logits_hat, &y_float, &sw)?;
             self.losses.push(loss);
 
-            if (last_loss - loss).abs() <= 1e-6 {
+            if (last_loss - loss).abs() / last_loss.abs().max(1.0) <= self.r_tol {
                 break;
             } else {
+                self.update(&X, &logits_hat, &y_float, &sw)?;
                 last_loss = loss
             }
         }
@@ -235,9 +284,10 @@ impl LogisticRegression {
 impl Default for LogisticRegression {
     fn default() -> Self {
         LogisticRegression {
-            max_iter: 100,
+            max_iter: 500,
             alpha: 1.0,
             learning_rate: 0.05,
+            r_tol: 1e-4,
             coeff: None,
             intercept: None,
             losses: vec![],
@@ -278,7 +328,7 @@ mod tests {
         let x = scaler.fit_transform(&features).unwrap();
 
         let mut model = LogisticRegression::default();
-        let _ = model.fit(&x, &y);
+        let _ = model.fit(&x, &y, None);
 
         let pred_proba = model.predict_proba(&x).unwrap();
         let pred = model.predict(&x).unwrap();
@@ -303,7 +353,7 @@ mod tests {
         let x = scaler.fit_transform(&features).unwrap();
 
         let mut model = LogisticRegression::default();
-        let _ = model.fit(&x, &y);
+        let _ = model.fit(&x, &y, None);
 
         let coeff = model.coeff.unwrap();
 

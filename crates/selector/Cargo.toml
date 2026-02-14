@@ -8,7 +8,7 @@ authors.workspace = true
 unsafe_code = "allow"
 
 [dependencies]
-ndarray = { version = "0.17.2", features = ["serde"] }
+ndarray = "0.17.2"
 ndarray-rand = "0.16.0"
 polars = { version = "0.53.0", features = ["lazy"] }
 

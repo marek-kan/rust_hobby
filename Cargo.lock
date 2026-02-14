@@ -1610,7 +1610,6 @@ dependencies = [
  "portable-atomic",
  "portable-atomic-util",
  "rawpointer",
- "serde",
 ]
 
 [[package]]
