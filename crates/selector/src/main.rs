@@ -37,12 +37,12 @@ pub fn main() {
     let p = 1.0 / (1.0 + (-1.0 * &logits).exp());
     let w = Array::ones((n, 1));
 
-    let y_classif: Array2<i32> = p.mapv(|prob| {
+    let y_classif = p.mapv(|prob| {
         let bernoulli = Bernoulli::new(prob).unwrap();
         if bernoulli.sample(&mut rnd_seed) {
-            1
+            1.0
         } else {
-            0
+            0.0
         }
     });
 
@@ -90,4 +90,25 @@ pub fn main() {
 
     let accuracy = correct as f64 / y_classif.len() as f64;
     println!("acc: {accuracy}");
+
+    let reg_selector = OrthogonalSelector::new(
+        vec![0],
+        ScoreType::SquaredPartialCorrelation,
+        0.05,
+        true,
+        None,
+    );
+
+    let (selected_reg, scores_reg) = reg_selector.fit(&x, &logits, None).unwrap();
+
+    println!("Selected: {:?}", selected_reg);
+    println!("Scores: {:?}", scores_reg);
+
+    let class_selector =
+        OrthogonalSelector::new(vec![0, 3], ScoreType::LogitGradient, 0.05, true, None);
+
+    let (selected_class, scores_class) = class_selector.fit(&x, &y_classif, None).unwrap();
+
+    println!("Selected: {:?}", selected_class);
+    println!("Scores: {:?}", scores_class);
 }

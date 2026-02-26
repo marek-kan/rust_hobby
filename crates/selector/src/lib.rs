@@ -1,19 +1,21 @@
 use std::collections::HashMap;
+use std::ops::Index;
 
-use ndarray::ShapeError;
 use ndarray::{Data, linalg::Dot, prelude::*};
+use ndarray::{OwnedRepr, ShapeError};
+use ndarray_linalg::assert_aclose;
 use ndarray_rand::{RandomExt, rand_distr::Normal};
 use thiserror::Error;
 
 const EPS: f64 = 1e-12;
 
-enum ScoreType {
-    FeatureInformationRatio,
-    ResidualRatio,
+pub enum ScoreType {
+    ResidualVarianceRatio,
+    SquaredPartialCorrelation,
     LogitGradient,
 }
 #[derive(Error, Debug)]
-enum OrthogonalError {
+pub enum OrthogonalError {
     #[error("Fixed feature not orthogonal: {0} to the set: {1:?}")]
     FixedFeatureNotOrthogonal(usize, Vec<usize>),
 
@@ -21,7 +23,7 @@ enum OrthogonalError {
     QShapeError(#[from] ShapeError),
 }
 
-struct LogisticRegressionParams {
+pub struct LogisticRegressionParams {
     max_iter: usize,
     alpha: f64,
     learning_rate: f64,
@@ -38,23 +40,23 @@ impl Default for LogisticRegressionParams {
     }
 }
 
-struct OrthogonalSelector {
+pub struct OrthogonalSelector {
     fixed_feature_indices: Vec<usize>,
     score_type: ScoreType,
     min_score: f64,
     center_featues: bool,
-    logistic_regression_params: Option<LogisticRegressionParams>,
+    logistic_regression_params: LogisticRegressionParams,
 }
 
 impl OrthogonalSelector {
-    fn new(
+    pub fn new(
         fixed_feature_indices: Vec<usize>,
         score_type: ScoreType,
         min_score: f64,
         center_featues: bool,
         logistic_regression_params: Option<LogisticRegressionParams>,
     ) -> Self {
-        let log_reg_params = Some(logistic_regression_params.unwrap_or_default());
+        let log_reg_params = logistic_regression_params.unwrap_or_default();
 
         OrthogonalSelector {
             fixed_feature_indices,
@@ -69,23 +71,28 @@ impl OrthogonalSelector {
         &self,
         x: &Array2<f64>,
         x_orth: &Array2<f64>,
-        y: &Array2<f64>,
         q: &Array2<f64>,
-        w: &Array2<f64>,
+        y: &Array2<f64>,
+        sw: &Array2<f64>,
     ) -> f64 {
         match self.score_type {
-            ScoreType::FeatureInformationRatio => feature_information_ratio(x, x_orth, w),
-            ScoreType::ResidualRatio => residual_ratio(x_orth, y, q, w),
-            ScoreType::LogitGradient => !todo!(),
+            ScoreType::ResidualVarianceRatio => residual_variance_ratio(&x, &x_orth, &sw),
+            ScoreType::SquaredPartialCorrelation => {
+                squared_partial_correlation(&x_orth, &y, &q, &sw)
+            }
+            ScoreType::LogitGradient => {
+                delta_log_loss(&self.logistic_regression_params, &q, &x_orth, &y, &sw)
+                    .expect("Unexpected error during `delta_log_loss`")
+            }
         }
     }
 
-    fn fit(
+    pub fn fit(
         &self,
         data: &Array2<f64>,
         y: &Array2<f64>,
         sample_weights: Option<Array2<f64>>,
-    ) -> Result<(), OrthogonalError> {
+    ) -> Result<(Vec<usize>, HashMap<usize, f64>), OrthogonalError> {
         let n = data.nrows();
 
         let sw = match sample_weights {
@@ -98,9 +105,17 @@ impl OrthogonalSelector {
         let mut q: Array2<f64> = Array2::zeros((n, 0));
         let mut selected: Vec<usize> = vec![];
         let mut scores: HashMap<usize, f64> = HashMap::new();
+        let mut explore_feature_indices: Vec<usize> = (0..data.ncols()).collect();
+        println!("{:?}", explore_feature_indices);
 
         for i in &self.fixed_feature_indices {
             let idx = i.to_owned();
+            let pop_idx = explore_feature_indices
+                .iter()
+                .position(|f_idx| f_idx == i)
+                .expect("couldn't find index of fixed feature");
+            explore_feature_indices.remove(pop_idx); // remove fixed features from upcomming search
+
             let mut x = data.slice(s![.., idx..idx + 1]).to_owned();
 
             if self.center_featues {
@@ -111,18 +126,39 @@ impl OrthogonalSelector {
             let x_orth = orthogonalize(&q, &x, &sw);
             let x_norm = weighted_norm(&x_orth, &sw);
 
-            if x_norm <= 1e-6 {
-                return Err(OrthogonalError::FixedFeatureNotOrthogonal(idx, selected));
-            }
-
-            let score = self.calculate_score(&x, &x_orth, y, &q, &sw);
+            let score = self.calculate_score(&x, &x_orth, &q, y, &sw);
+            println!("Idx: {} has score: {}", idx, score);
 
             q.push_column((x_orth / x_norm).column(0))?;
             selected.push(idx);
             scores.insert(idx, score);
         }
 
-        Ok(())
+        println!("{:?}", explore_feature_indices);
+
+        for idx in explore_feature_indices {
+            let mut x = data.slice(s![.., idx..idx + 1]).to_owned();
+
+            if self.center_featues {
+                let weighted_avg = x.column(0).dot(&sw.column(0)) / weight_sum;
+                x -= weighted_avg;
+            };
+
+            let x_orth = orthogonalize(&q, &x, &sw);
+            let x_norm = weighted_norm(&x_orth, &sw);
+
+            let score = self.calculate_score(&x, &x_orth, &q, y, &sw);
+            println!("Idx: {} has score: {}", idx, score);
+
+            scores.insert(idx, score);
+
+            if score > self.min_score {
+                q.push_column((x_orth / x_norm).column(0))?;
+                selected.push(idx);
+            }
+        }
+
+        Ok((selected, scores))
     }
 }
 
@@ -161,17 +197,13 @@ pub fn orthogonalize(q: &Array2<f64>, x: &Array2<f64>, w: &Array2<f64>) -> Array
     r
 }
 
-pub fn feature_information_ratio(x: &Array2<f64>, r: &Array2<f64>, w: &Array2<f64>) -> f64 {
-    let denom = (w * x * x).sum();
+pub fn residual_variance_ratio(x: &Array2<f64>, r: &Array2<f64>, w: &Array2<f64>) -> f64 {
+    let denom = (w * x * x).sum().max(EPS);
 
-    if denom <= EPS {
-        0.0
-    } else {
-        (w * r * r).sum() / denom
-    }
+    (w * r * r).sum() / denom
 }
 
-pub fn residual_ratio(
+pub fn squared_partial_correlation(
     x_orth: &Array2<f64>,
     y: &Array2<f64>,
     q: &Array2<f64>,
@@ -252,6 +284,7 @@ pub enum FitError {
     AlreadyFitted,
 }
 
+#[derive(Clone)]
 pub struct LogisticRegression {
     max_iter: usize,
     alpha: f64,
@@ -371,11 +404,10 @@ impl LogisticRegression {
     pub fn fit(
         &mut self,
         X: &Array2<f64>,
-        y: &Array2<i32>,
+        y: &Array2<f64>,
         sample_weights: Option<Array2<f64>>,
     ) -> Result<(), FitError> {
         let n = X.nrows();
-        let y_float = y.mapv(|v| v as f64);
 
         let sw = match sample_weights {
             Some(sw) => sw,
@@ -390,13 +422,13 @@ impl LogisticRegression {
         for _ in 0..self.max_iter {
             let logits_hat = self.decision_boundary(X)?;
 
-            let loss = self.loss(&logits_hat, &y_float, &sw)?;
+            let loss = self.loss(&logits_hat, y, &sw)?;
             self.losses.push(loss);
 
             if (last_loss - loss).abs() / last_loss.abs().max(1.0) <= self.r_tol {
                 break;
             } else {
-                self.update(X, &logits_hat, &y_float, &sw)?;
+                self.update(X, &logits_hat, y, &sw)?;
                 last_loss = loss
             }
         }
@@ -408,15 +440,63 @@ impl LogisticRegression {
 impl Default for LogisticRegression {
     fn default() -> Self {
         LogisticRegression {
-            max_iter: 500,
+            max_iter: 100,
             alpha: 1.0,
-            learning_rate: 0.05,
+            learning_rate: 0.1,
             r_tol: 1e-4,
             coeff: None,
             intercept: None,
             losses: vec![],
         }
     }
+}
+
+pub fn delta_log_loss(
+    logistic_regression_params: &LogisticRegressionParams,
+    data: &Array2<f64>,
+    x_orth: &Array2<f64>,
+    y: &Array2<f64>,
+    w: &Array2<f64>,
+) -> Result<f64, FitError> {
+    let estimator = LogisticRegression::new(
+        logistic_regression_params.max_iter,
+        logistic_regression_params.alpha,
+        logistic_regression_params.learning_rate,
+        logistic_regression_params.r_tol,
+    );
+
+    if data.ncols() < 1 {
+        let mut model = estimator.clone();
+
+        let x_fit = StandardScaler::new().fit_transform(x_orth)?;
+
+        model.fit(&x_fit, y, Some(w.clone()))?;
+
+        let logits = model.decision_boundary(&x_fit)?;
+
+        return model.loss(&logits, y, w);
+    }
+
+    let mut model_base = estimator.clone();
+    let x_fit_base = StandardScaler::new().fit_transform(data)?;
+
+    model_base.fit(&x_fit_base, y, Some(w.clone()))?;
+
+    let loss_base = model_base.loss(&model_base.decision_boundary(&x_fit_base)?, y, w)?;
+
+    let mut data_new = data.clone();
+    data_new
+        .push_column(x_orth.column(0))
+        .expect("Unexpected shape error during `delta_log_loss`");
+
+    let x_fit_new = StandardScaler::new().fit_transform(&data_new)?;
+    let mut model_new = estimator.clone();
+
+    model_new.fit(&x_fit_new, y, Some(w.clone()))?;
+
+    let loss_new = model_new.loss(&model_new.decision_boundary(&x_fit_new)?, y, w)?;
+
+    Ok(loss_base - loss_new)
 }
 
 #[cfg(test)]
@@ -446,7 +526,7 @@ mod tests {
     #[test]
     fn test_fitpredict_standardized_runs() {
         let features: Array2<f64> = array![[0.0], [1.0], [0.5], [5.0], [3.0]];
-        let y: Array2<i32> = array![[0], [0], [0], [1], [1]];
+        let y: Array2<f64> = array![[0.], [0.], [0.], [1.], [1.]];
         let mut scaler = StandardScaler::new();
 
         let x = scaler.fit_transform(&features).unwrap();
@@ -471,7 +551,7 @@ mod tests {
     #[test]
     fn test_coefficients_change() {
         let features: Array2<f64> = array![[0.0], [1.0], [0.5], [5.0], [3.0]];
-        let y: Array2<i32> = array![[0], [0], [0], [1], [1]];
+        let y: Array2<f64> = array![[0.], [0.], [0.], [1.], [1.]];
         let mut scaler = StandardScaler::new();
 
         let x = scaler.fit_transform(&features).unwrap();
