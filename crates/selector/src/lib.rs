@@ -1,5 +1,9 @@
+use std::collections::HashMap;
+
+use ndarray::ShapeError;
 use ndarray::{Data, linalg::Dot, prelude::*};
 use ndarray_rand::{RandomExt, rand_distr::Normal};
+use thiserror::Error;
 
 const EPS: f64 = 1e-12;
 
@@ -7,6 +11,119 @@ enum ScoreType {
     FeatureInformationRatio,
     ResidualRatio,
     LogitGradient,
+}
+#[derive(Error, Debug)]
+enum OrthogonalError {
+    #[error("Fixed feature not orthogonal: {0} to the set: {1:?}")]
+    FixedFeatureNotOrthogonal(usize, Vec<usize>),
+
+    #[error[transparent]]
+    QShapeError(#[from] ShapeError),
+}
+
+struct LogisticRegressionParams {
+    max_iter: usize,
+    alpha: f64,
+    learning_rate: f64,
+    r_tol: f64,
+}
+impl Default for LogisticRegressionParams {
+    fn default() -> Self {
+        LogisticRegressionParams {
+            max_iter: 500,
+            alpha: 1.0,
+            learning_rate: 0.05,
+            r_tol: 1e-4,
+        }
+    }
+}
+
+struct OrthogonalSelector {
+    fixed_feature_indices: Vec<usize>,
+    score_type: ScoreType,
+    min_score: f64,
+    center_featues: bool,
+    logistic_regression_params: Option<LogisticRegressionParams>,
+}
+
+impl OrthogonalSelector {
+    fn new(
+        fixed_feature_indices: Vec<usize>,
+        score_type: ScoreType,
+        min_score: f64,
+        center_featues: bool,
+        logistic_regression_params: Option<LogisticRegressionParams>,
+    ) -> Self {
+        let log_reg_params = Some(logistic_regression_params.unwrap_or_default());
+
+        OrthogonalSelector {
+            fixed_feature_indices,
+            score_type,
+            min_score,
+            center_featues,
+            logistic_regression_params: log_reg_params,
+        }
+    }
+
+    fn calculate_score(
+        &self,
+        x: &Array2<f64>,
+        x_orth: &Array2<f64>,
+        y: &Array2<f64>,
+        q: &Array2<f64>,
+        w: &Array2<f64>,
+    ) -> f64 {
+        match self.score_type {
+            ScoreType::FeatureInformationRatio => feature_information_ratio(x, x_orth, w),
+            ScoreType::ResidualRatio => residual_ratio(x_orth, y, q, w),
+            ScoreType::LogitGradient => !todo!(),
+        }
+    }
+
+    fn fit(
+        &self,
+        data: &Array2<f64>,
+        y: &Array2<f64>,
+        sample_weights: Option<Array2<f64>>,
+    ) -> Result<(), OrthogonalError> {
+        let n = data.nrows();
+
+        let sw = match sample_weights {
+            Some(sw) => sw,
+            None => Array::ones((n, 1)),
+        };
+
+        let weight_sum = sw.sum();
+
+        let mut q: Array2<f64> = Array2::zeros((n, 0));
+        let mut selected: Vec<usize> = vec![];
+        let mut scores: HashMap<usize, f64> = HashMap::new();
+
+        for i in &self.fixed_feature_indices {
+            let idx = i.to_owned();
+            let mut x = data.slice(s![.., idx..idx + 1]).to_owned();
+
+            if self.center_featues {
+                let weighted_avg = x.column(0).dot(&sw.column(0)) / weight_sum;
+                x -= weighted_avg;
+            };
+
+            let x_orth = orthogonalize(&q, &x, &sw);
+            let x_norm = weighted_norm(&x_orth, &sw);
+
+            if x_norm <= 1e-6 {
+                return Err(OrthogonalError::FixedFeatureNotOrthogonal(idx, selected));
+            }
+
+            let score = self.calculate_score(&x, &x_orth, y, &q, &sw);
+
+            q.push_column((x_orth / x_norm).column(0))?;
+            selected.push(idx);
+            scores.insert(idx, score);
+        }
+
+        Ok(())
+    }
 }
 
 pub fn get_random_normal(n: usize) -> Array2<f64> {
@@ -54,10 +171,17 @@ pub fn feature_information_ratio(x: &Array2<f64>, r: &Array2<f64>, w: &Array2<f6
     }
 }
 
-pub fn residual_ratio(r_x: &Array2<f64>, r_y: &Array2<f64>, w: &Array2<f64>) -> f64 {
-    let numer = (w * r_x * r_y).sum();
-    let denom_x = (w * r_x * r_x).sum();
-    let denom_y = (w * r_y * r_y).sum();
+pub fn residual_ratio(
+    x_orth: &Array2<f64>,
+    y: &Array2<f64>,
+    q: &Array2<f64>,
+    w: &Array2<f64>,
+) -> f64 {
+    let r_y = orthogonalize(q, y, w);
+
+    let numer = (w * x_orth * &r_y).sum();
+    let denom_x = (w * x_orth * x_orth).sum();
+    let denom_y = (w * &r_y * &r_y).sum();
 
     (numer * numer) / (denom_x * denom_y)
 }
@@ -188,7 +312,7 @@ impl LogisticRegression {
         let z = self.decision_boundary(X)?;
 
         let pred = self.sigmoid(&z);
-        Ok(pred.mapv(|x| x.max(EPS).min(1.0 - EPS)))
+        Ok(pred.mapv(|x| x.clamp(EPS, 1.0 - EPS)))
     }
 
     fn loss(
@@ -229,7 +353,7 @@ impl LogisticRegression {
 
         // Gradients
         let grad0 = self.learning_rate * norm * diff_pred.sum();
-        let grad1: Array2<f64> = self.learning_rate * norm * X.t().dot(&diff_pred);
+        let grad1 = self.learning_rate * norm * X.t().dot(&diff_pred);
         let decay = 1.0 - self.learning_rate * self.alpha * norm;
 
         // Update
@@ -264,7 +388,7 @@ impl LogisticRegression {
         let mut last_loss = f64::INFINITY;
 
         for _ in 0..self.max_iter {
-            let logits_hat = self.decision_boundary(&X)?;
+            let logits_hat = self.decision_boundary(X)?;
 
             let loss = self.loss(&logits_hat, &y_float, &sw)?;
             self.losses.push(loss);
@@ -272,7 +396,7 @@ impl LogisticRegression {
             if (last_loss - loss).abs() / last_loss.abs().max(1.0) <= self.r_tol {
                 break;
             } else {
-                self.update(&X, &logits_hat, &y_float, &sw)?;
+                self.update(X, &logits_hat, &y_float, &sw)?;
                 last_loss = loss
             }
         }

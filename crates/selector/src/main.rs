@@ -21,21 +21,21 @@ pub fn pl() -> Result<(), PolarsError> {
 pub fn main() {
     // let a = Normal::new(mean, std_dev);
     let mut rnd_seed = rand::rng();
-    let N = 5000;
+    let n = 5000;
 
-    let z1 = get_random_normal(N);
-    let z2 = get_random_normal(N);
+    let z1 = get_random_normal(n);
+    let z2 = get_random_normal(n);
 
-    let x1 = &z1 + 0.05 * get_random_normal(N);
-    let x2 = 1.1 * &z1 + 0.05 * get_random_normal(N);
-    let x3 = -0.75 * &z1 + 0.05 * get_random_normal(N);
+    let x1 = &z1 + 0.05 * get_random_normal(n);
+    let x2 = 1.1 * &z1 + 0.05 * get_random_normal(n);
+    let x3 = -0.75 * &z1 + 0.05 * get_random_normal(n);
 
-    let x4 = &z2 + 0.05 * get_random_normal(N);
-    let x5 = get_random_normal(N);
+    let x4 = &z2 + 0.05 * get_random_normal(n);
+    let x5 = get_random_normal(n);
 
     let logits = 2.0 * &z1 + 1.5 * &z2 + 0.1;
     let p = 1.0 / (1.0 + (-1.0 * &logits).exp());
-    let w = Array::ones((N, 1));
+    let w = Array::ones((n, 1));
 
     let y_classif: Array2<i32> = p.mapv(|prob| {
         let bernoulli = Bernoulli::new(prob).unwrap();
@@ -54,7 +54,7 @@ pub fn main() {
     let norm = weighted_norm(&z1, &w);
     println!("Norm {}", norm);
 
-    let X = ndarray::concatenate(
+    let x = ndarray::concatenate(
         Axis(1),
         // &[z1.view(), z2.view()]
         &[x1.view(), x2.view(), x3.view(), x4.view(), x5.view()],
@@ -65,9 +65,9 @@ pub fn main() {
     let mut model = LogisticRegression::new(1000, 2.0, 0.05, 1e-4);
     let mut scaler = StandardScaler::new();
 
-    let x_std = scaler.fit_transform(&X).unwrap();
+    let x_std = scaler.fit_transform(&x).unwrap();
     println!("fit");
-    let _ = model.fit(&x_std, &y_classif, Some(w)).unwrap();
+    model.fit(&x_std, &y_classif, Some(w)).unwrap();
     println!("after fit");
     let pred = model.predict(&x_std).unwrap();
 
