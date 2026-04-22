@@ -48,13 +48,13 @@ pub fn main() {
 
     println!("{}", &y_classif.slice(s![0..15, ..]));
 
-    let w_inner = weighted_inner(&z1, &logits, &w);
-    println!("WI {}", w_inner);
+    // let w_inner = weighted_inner(&z1, &logits, &w);
+    // println!("WI {}", w_inner);
 
-    let norm = weighted_norm(&z1, &w);
-    println!("Norm {}", norm);
+    // let norm = weighted_norm(&z1, &w);
+    // println!("Norm {}", norm);
 
-    let x = ndarray::concatenate(
+    let mut x = ndarray::concatenate(
         Axis(1),
         // &[z1.view(), z2.view()]
         &[x1.view(), x2.view(), x3.view(), x4.view(), x5.view()],
@@ -99,7 +99,7 @@ pub fn main() {
         None,
     );
 
-    let (selected_reg, scores_reg) = reg_selector.fit(&x, &logits, None).unwrap();
+    let (selected_reg, scores_reg) = reg_selector.fit(&mut x, &logits, None).unwrap();
 
     println!("Selected: {:?}", selected_reg);
     println!("Scores: {:?}", scores_reg);
@@ -107,7 +107,7 @@ pub fn main() {
     let class_selector =
         OrthogonalSelector::new(vec![0, 3], ScoreType::LogitGradient, 0.05, true, None);
 
-    let (selected_class, scores_class) = class_selector.fit(&x, &y_classif, None).unwrap();
+    let (selected_class, scores_class) = class_selector.fit(&mut x, &y_classif, None).unwrap();
 
     println!("Selected: {:?}", selected_class);
     println!("Scores: {:?}", scores_class);

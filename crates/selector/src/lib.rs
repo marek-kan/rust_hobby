@@ -1,9 +1,5 @@
 use std::collections::HashMap;
-use std::ops::Index;
-
-use ndarray::{Data, linalg::Dot, prelude::*};
-use ndarray::{OwnedRepr, ShapeError};
-use ndarray_linalg::assert_aclose;
+use ndarray::{Data, ShapeError, linalg::Dot, prelude::*};
 use ndarray_rand::{RandomExt, rand_distr::Normal};
 use thiserror::Error;
 
@@ -87,9 +83,17 @@ impl OrthogonalSelector {
         }
     }
 
+    fn weighted_center(&self, data: &Array2<f64>, sample_weights: &Array2<f64>) -> Array2<f64> {
+        let weight_sum = sample_weights.sum();
+        let mut means = data.t().dot(sample_weights) / weight_sum;
+        means.reverse_axes();
+
+        data - means
+    }
+    
     pub fn fit(
         &self,
-        data: &Array2<f64>,
+        data: &mut Array2<f64>,
         y: &Array2<f64>,
         sample_weights: Option<Array2<f64>>,
     ) -> Result<(Vec<usize>, HashMap<usize, f64>), OrthogonalError> {
@@ -100,13 +104,15 @@ impl OrthogonalSelector {
             None => Array::ones((n, 1)),
         };
 
-        let weight_sum = sw.sum();
-
         let mut q: Array2<f64> = Array2::zeros((n, 0));
         let mut selected: Vec<usize> = vec![];
         let mut scores: HashMap<usize, f64> = HashMap::new();
         let mut explore_feature_indices: Vec<usize> = (0..data.ncols()).collect();
         println!("{:?}", explore_feature_indices);
+
+        if self.center_featues {
+            *data = self.weighted_center(data, &sw)
+        }
 
         for i in &self.fixed_feature_indices {
             let idx = i.to_owned();
@@ -116,12 +122,7 @@ impl OrthogonalSelector {
                 .expect("couldn't find index of fixed feature");
             explore_feature_indices.remove(pop_idx); // remove fixed features from upcomming search
 
-            let mut x = data.slice(s![.., idx..idx + 1]).to_owned();
-
-            if self.center_featues {
-                let weighted_avg = x.column(0).dot(&sw.column(0)) / weight_sum;
-                x -= weighted_avg;
-            };
+            let x = data.slice(s![.., idx..idx + 1]).to_owned();
 
             let x_orth = orthogonalize(&q, &x, &sw);
             let x_norm = weighted_norm(&x_orth, &sw);
@@ -137,12 +138,7 @@ impl OrthogonalSelector {
         println!("{:?}", explore_feature_indices);
 
         for idx in explore_feature_indices {
-            let mut x = data.slice(s![.., idx..idx + 1]).to_owned();
-
-            if self.center_featues {
-                let weighted_avg = x.column(0).dot(&sw.column(0)) / weight_sum;
-                x -= weighted_avg;
-            };
+            let x = data.slice(s![.., idx..idx + 1]).to_owned();
 
             let x_orth = orthogonalize(&q, &x, &sw);
             let x_norm = weighted_norm(&x_orth, &sw);
