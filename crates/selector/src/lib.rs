@@ -137,21 +137,57 @@ impl OrthogonalSelector {
 
         println!("{:?}", explore_feature_indices);
 
-        for idx in explore_feature_indices {
-            let x = data.slice(s![.., idx..idx + 1]).to_owned();
+        let mut intermediate_results: HashMap<usize, f64> = HashMap::new();
+        while explore_feature_indices.len() > 0 {
+            intermediate_results.clear();
 
-            let x_orth = orthogonalize(&q, &x, &sw);
-            let x_norm = weighted_norm(&x_orth, &sw);
+            for &idx in &explore_feature_indices {
+                let x = data.slice(s![.., idx..idx + 1]).to_owned();
+                let x_orth = orthogonalize(&q, &x, &sw);
 
-            let score = self.calculate_score(&x, &x_orth, &q, y, &sw);
-            println!("Idx: {} has score: {}", idx, score);
+                let score = self.calculate_score(&x, &x_orth, &q, y, &sw);
+                println!("Idx: {} has score: {}", idx, score);
 
-            scores.insert(idx, score);
-
-            if score > self.min_score {
-                q.push_column((x_orth / x_norm).column(0))?;
-                selected.push(idx);
+                intermediate_results.insert(idx, score);
             }
+
+            let best_feature = intermediate_results
+                .iter()
+                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap());
+
+            if let Some((&best_feature_idx, &best_feature_score)) = best_feature {
+                scores.insert(best_feature_idx, best_feature_score);
+
+                if best_feature_score >= self.min_score {
+                    let x = data
+                        .slice(s![.., best_feature_idx..best_feature_idx + 1])
+                        .to_owned();
+                    let x_orth = orthogonalize(&q, &x, &sw);
+                    let x_norm = weighted_norm(&x_orth, &sw);
+
+                    q.push_column((x_orth / x_norm).column(0))?;
+                    selected.push(best_feature_idx);
+
+                    explore_feature_indices.remove(
+                        explore_feature_indices
+                            .iter()
+                            .position(|x| x == &best_feature_idx)
+                            .expect(
+                                "Failed to find `best_feature_index` in `explore_feature_indices`",
+                            ),
+                    );
+                } else {
+                    // Add scores from last iteration
+                    for k in intermediate_results.keys() {
+                        if !scores.contains_key(k) {
+                            scores.insert(k.clone(), intermediate_results.get(k).unwrap().clone());
+                        }
+                    }
+                    break;
+                }
+            } else {
+                break;
+            };
         }
 
         Ok((selected, scores))
@@ -206,12 +242,18 @@ pub fn squared_partial_correlation(
     w: &Array2<f64>,
 ) -> f64 {
     let r_y = orthogonalize(q, y, w);
-
-    let numer = (w * x_orth * &r_y).sum();
     let denom_x = (w * x_orth * x_orth).sum();
     let denom_y = (w * &r_y * &r_y).sum();
 
-    (numer * numer) / (denom_x * denom_y)
+    let denom = (denom_x * denom_y).max(EPS);
+    let numer = (w * x_orth * &r_y).sum().powi(2);
+
+    println!(
+        "Denom X: {}, Denom Y: {}, Numer: {}, Denom: {}",
+        denom_x, denom_y, numer, denom
+    );
+
+    numer / denom
 }
 
 #[derive(Default)]
@@ -593,7 +635,7 @@ mod tests {
         let selector = OrthogonalSelector::new(
             vec![0],
             ScoreType::SquaredPartialCorrelation,
-            0.05,
+            0.5,
             true,
             None,
         );
