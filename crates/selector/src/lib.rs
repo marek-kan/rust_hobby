@@ -1,5 +1,7 @@
 use ndarray::{Data, ShapeError, linalg::Dot, prelude::*};
 use ndarray_rand::{RandomExt, rand_distr::Normal};
+use rayon::prelude::*;
+use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::collections::HashMap;
 use thiserror::Error;
 
@@ -41,6 +43,7 @@ pub struct OrthogonalSelector {
     score_type: ScoreType,
     min_score: f64,
     center_featues: bool,
+    thread_pool: ThreadPool,
     logistic_regression_params: LogisticRegressionParams,
 }
 
@@ -50,15 +53,23 @@ impl OrthogonalSelector {
         score_type: ScoreType,
         min_score: f64,
         center_featues: bool,
+        n_jobs: Option<usize>,
         logistic_regression_params: Option<LogisticRegressionParams>,
     ) -> Self {
         let log_reg_params = logistic_regression_params.unwrap_or_default();
+        let n_threads = n_jobs.unwrap_or(1);
+
+        let thread_pool = ThreadPoolBuilder::new()
+            .num_threads(n_threads)
+            .build()
+            .expect("Failed to create thread pool");
 
         OrthogonalSelector {
             fixed_feature_indices,
             score_type,
             min_score,
             center_featues,
+            thread_pool,
             logistic_regression_params: log_reg_params,
         }
     }
@@ -116,10 +127,12 @@ impl OrthogonalSelector {
 
         for i in &self.fixed_feature_indices {
             let idx = i.to_owned();
+
             let pop_idx = explore_feature_indices
                 .iter()
                 .position(|f_idx| f_idx == i)
                 .expect("couldn't find index of fixed feature");
+
             explore_feature_indices.remove(pop_idx); // remove fixed features from upcomming search
 
             let x = data.slice(s![.., idx..idx + 1]).to_owned();
@@ -137,25 +150,28 @@ impl OrthogonalSelector {
 
         println!("{:?}", explore_feature_indices);
 
-        let mut intermediate_results: HashMap<usize, f64> = HashMap::new();
         while explore_feature_indices.len() > 0 {
-            intermediate_results.clear();
+            let results: Vec<(usize, f64)> = self.thread_pool.install(|| {
+                explore_feature_indices
+                    .par_iter()
+                    .map(|i| {
+                        let idx = *i;
+                        let x = data.slice(s![.., idx..idx + 1]).to_owned();
+                        let x_orth = orthogonalize(&q, &x, &sw);
 
-            for &idx in &explore_feature_indices {
-                let x = data.slice(s![.., idx..idx + 1]).to_owned();
-                let x_orth = orthogonalize(&q, &x, &sw);
+                        let score = self.calculate_score(&x, &x_orth, &q, y, &sw);
+                        (idx, score)
+                    })
+                    .collect()
+            });
 
-                let score = self.calculate_score(&x, &x_orth, &q, y, &sw);
-                println!("Idx: {} has score: {}", idx, score);
+            let best_feature = self.thread_pool.install(|| {
+                results
+                    .par_iter()
+                    .max_by(|&&a, &&b| a.1.partial_cmp(&b.1).unwrap())
+            });
 
-                intermediate_results.insert(idx, score);
-            }
-
-            let best_feature = intermediate_results
-                .iter()
-                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap());
-
-            if let Some((&best_feature_idx, &best_feature_score)) = best_feature {
+            if let Some(&(best_feature_idx, best_feature_score)) = best_feature {
                 scores.insert(best_feature_idx, best_feature_score);
 
                 if best_feature_score >= self.min_score {
@@ -178,9 +194,9 @@ impl OrthogonalSelector {
                     );
                 } else {
                     // Add scores from last iteration
-                    for k in intermediate_results.keys() {
-                        if !scores.contains_key(k) {
-                            scores.insert(k.clone(), intermediate_results.get(k).unwrap().clone());
+                    for (k, v) in results {
+                        if !scores.contains_key(&k) {
+                            scores.insert(k, v);
                         }
                     }
                     break;
@@ -637,10 +653,12 @@ mod tests {
             ScoreType::SquaredPartialCorrelation,
             0.5,
             true,
+            Some(2),
             None,
         );
 
-        let (selected, _scores) = selector.fit(&mut x, &logits, None).unwrap();
+        let (mut selected, _scores) = selector.fit(&mut x, &logits, None).unwrap();
+        selected.sort();
 
         assert_eq!(selected, vec![0, 3]);
     }
@@ -650,10 +668,17 @@ mod tests {
         let n = 5000;
         let (mut x, logits, _) = make_selector_data(n);
 
-        let selector =
-            OrthogonalSelector::new(vec![0], ScoreType::ResidualVarianceRatio, 0.05, true, None);
+        let selector = OrthogonalSelector::new(
+            vec![0],
+            ScoreType::ResidualVarianceRatio,
+            0.05,
+            true,
+            None,
+            None,
+        );
 
-        let (selected, _scores) = selector.fit(&mut x, &logits, None).unwrap();
+        let (mut selected, _scores) = selector.fit(&mut x, &logits, None).unwrap();
+        selected.sort();
 
         assert_eq!(selected, vec![0, 3, 4]);
     }
@@ -677,10 +702,17 @@ mod tests {
             }
         });
 
-        let selector =
-            OrthogonalSelector::new(vec![0, 3], ScoreType::LogitGradient, 0.05, true, None);
+        let selector = OrthogonalSelector::new(
+            vec![0, 3],
+            ScoreType::LogitGradient,
+            0.05,
+            true,
+            Some(2),
+            None,
+        );
 
-        let (selected, _scores) = selector.fit(&mut x, &y_classif, None).unwrap();
+        let (mut selected, _scores) = selector.fit(&mut x, &y_classif, None).unwrap();
+        selected.sort();
 
         assert_eq!(selected, vec![0, 3]);
     }
