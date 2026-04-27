@@ -1,22 +1,5 @@
 use super::*;
 
-pub struct LogisticRegressionParams {
-    pub max_iter: usize,
-    pub alpha: f64,
-    pub learning_rate: f64,
-    pub r_tol: f64,
-}
-impl Default for LogisticRegressionParams {
-    fn default() -> Self {
-        LogisticRegressionParams {
-            max_iter: 500,
-            alpha: 1.0,
-            learning_rate: 0.05,
-            r_tol: 1e-4,
-        }
-    }
-}
-
 #[derive(Clone)]
 pub(crate) struct LogisticRegression {
     pub(crate) max_iter: usize,
@@ -142,7 +125,7 @@ impl LogisticRegression {
         y: &Array2<f64>,
         sample_weights: Option<Array2<f64>>,
     ) -> Result<(), FitError> {
-        if !self.is_fitted() {
+        if self.is_fitted() {
             return Err(FitError::AlreadyFitted);
         }
 

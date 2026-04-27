@@ -32,6 +32,8 @@ fn test_fitpredict_standardized_runs() {
     let mut model = LogisticRegression::default();
     let _ = model.fit(&x, &y, None);
 
+    assert!(model.is_fitted());
+
     let pred_proba = model.predict_proba(&x).unwrap();
     let pred = model.predict(&x).unwrap();
 
@@ -56,6 +58,8 @@ fn test_coefficients_change() {
 
     let mut model = LogisticRegression::default();
     let _ = model.fit(&x, &y, None);
+
+    assert!(model.is_fitted());
 
     let coeff = model.coeff.unwrap();
 
