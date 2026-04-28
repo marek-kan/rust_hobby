@@ -1,6 +1,7 @@
 use super::omp::*;
 use super::*;
 
+#[derive(Clone, Copy, Debug)]
 pub enum ScoreType {
     ResidualVarianceRatio,
     SquaredPartialCorrelation,
@@ -25,11 +26,6 @@ pub fn squared_partial_correlation(
 
     let denom = (denom_x * denom_y).max(EPS);
     let numer = (w * x_orth * &r_y).sum().powi(2);
-
-    println!(
-        "Denom X: {}, Denom Y: {}, Numer: {}, Denom: {}",
-        denom_x, denom_y, numer, denom
-    );
 
     numer / denom
 }

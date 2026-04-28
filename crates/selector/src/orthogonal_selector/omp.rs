@@ -41,12 +41,25 @@ pub enum OrthogonalError {
     QShapeError(#[from] ShapeError),
 }
 
+#[derive(Clone, Copy)]
 pub struct LogisticRegressionParams {
     pub max_iter: usize,
     pub alpha: f64,
     pub learning_rate: f64,
     pub r_tol: f64,
 }
+
+impl LogisticRegressionParams {
+    pub fn new(max_iter: usize, alpha: f64, learning_rate: f64, r_tol: f64) -> Self {
+        Self {
+            max_iter,
+            alpha,
+            learning_rate,
+            r_tol,
+        }
+    }
+}
+
 impl Default for LogisticRegressionParams {
     fn default() -> Self {
         LogisticRegressionParams {
@@ -122,26 +135,23 @@ impl OrthogonalSelector {
 
     pub fn fit(
         &self,
-        data: &mut Array2<f64>,
-        y: &Array2<f64>,
-        sample_weights: Option<Array2<f64>>,
+        data: ArrayView2<f64>,
+        y: ArrayView2<f64>,
+        sample_weights: Option<ArrayView2<f64>>,
     ) -> Result<(Vec<usize>, HashMap<usize, f64>), OrthogonalError> {
         let n = data.nrows();
 
         let sw = match sample_weights {
-            Some(sw) => sw,
+            Some(sw) => sw.to_owned(),
             None => Array::ones((n, 1)),
         };
 
+        let y = y.to_owned();
         let mut q: Array2<f64> = Array2::zeros((n, 0));
         let mut selected: Vec<usize> = vec![];
         let mut scores: HashMap<usize, f64> = HashMap::new();
         let mut explore_feature_indices: Vec<usize> = (0..data.ncols()).collect();
         println!("{:?}", explore_feature_indices);
-
-        if self.center_featues {
-            *data = self.weighted_center(data, &sw)
-        }
 
         for i in &self.fixed_feature_indices {
             let idx = i.to_owned();
@@ -153,20 +163,21 @@ impl OrthogonalSelector {
 
             explore_feature_indices.remove(pop_idx); // remove fixed features from upcomming search
 
-            let x = data.slice(s![.., idx..idx + 1]).to_owned();
+            let mut x = data.slice(s![.., idx..idx + 1]).to_owned();
+            // centered one-by-one to avoid cloning of whole `data` matrix
+            if self.center_featues {
+                x = self.weighted_center(&x, &sw);
+            }
 
             let x_orth = orthogonalize(&q, &x, &sw);
             let x_norm = weighted_norm(&x_orth, &sw);
 
-            let score = self.calculate_score(&x, &x_orth, &q, y, &sw);
-            println!("Idx: {} has score: {}", idx, score);
+            let score = self.calculate_score(&x, &x_orth, &q, &y, &sw);
 
             q.push_column((x_orth / x_norm).column(0))?;
             selected.push(idx);
             scores.insert(idx, score);
         }
-
-        println!("{:?}", explore_feature_indices);
 
         while !explore_feature_indices.is_empty() {
             let results: Vec<(usize, f64)> = self.thread_pool.install(|| {
@@ -174,10 +185,15 @@ impl OrthogonalSelector {
                     .par_iter()
                     .map(|i| {
                         let idx = *i;
-                        let x = data.slice(s![.., idx..idx + 1]).to_owned();
+                        let mut x = data.slice(s![.., idx..idx + 1]).to_owned();
+
+                        if self.center_featues {
+                            x = self.weighted_center(&x, &sw);
+                        }
+
                         let x_orth = orthogonalize(&q, &x, &sw);
 
-                        let score = self.calculate_score(&x, &x_orth, &q, y, &sw);
+                        let score = self.calculate_score(&x, &x_orth, &q, &y, &sw);
                         (idx, score)
                     })
                     .collect()
@@ -193,9 +209,14 @@ impl OrthogonalSelector {
                 scores.insert(best_feature_idx, best_feature_score);
 
                 if best_feature_score >= self.min_score {
-                    let x = data
+                    let mut x = data
                         .slice(s![.., best_feature_idx..best_feature_idx + 1])
                         .to_owned();
+
+                    if self.center_featues {
+                        x = self.weighted_center(&x, &sw);
+                    }
+
                     let x_orth = orthogonalize(&q, &x, &sw);
                     let x_norm = weighted_norm(&x_orth, &sw);
 

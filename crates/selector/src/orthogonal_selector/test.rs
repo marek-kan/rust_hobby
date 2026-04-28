@@ -28,7 +28,7 @@ fn make_selector_data(n: usize) -> (Array2<f64>, Array2<f64>, Array2<f64>) {
 #[test]
 fn test_selector_squared_partial_correlation() {
     let n = 5000;
-    let (mut x, logits, _) = make_selector_data(n);
+    let (x, logits, _) = make_selector_data(n);
 
     let selector = OrthogonalSelector::new(
         vec![0],
@@ -39,7 +39,7 @@ fn test_selector_squared_partial_correlation() {
         None,
     );
 
-    let (mut selected, _scores) = selector.fit(&mut x, &logits, None).unwrap();
+    let (mut selected, _scores) = selector.fit(x.view(), logits.view(), None).unwrap();
     selected.sort();
 
     assert_eq!(selected, vec![0, 3]);
@@ -48,7 +48,7 @@ fn test_selector_squared_partial_correlation() {
 #[test]
 fn test_selector_residual_variance_ratio() {
     let n = 5000;
-    let (mut x, logits, _) = make_selector_data(n);
+    let (x, logits, _) = make_selector_data(n);
 
     let selector = OrthogonalSelector::new(
         vec![0],
@@ -59,7 +59,7 @@ fn test_selector_residual_variance_ratio() {
         None,
     );
 
-    let (mut selected, _scores) = selector.fit(&mut x, &logits, None).unwrap();
+    let (mut selected, _scores) = selector.fit(x.view(), logits.view(), None).unwrap();
     selected.sort();
 
     assert_eq!(selected, vec![0, 3, 4]);
@@ -72,7 +72,7 @@ fn test_selector_logit_gradient() {
 
     let mut rnd_seed = rand::rng();
     let n = 5000;
-    let (mut x, logits, _) = make_selector_data(n);
+    let (x, logits, _) = make_selector_data(n);
 
     let p = 1.0 / (1.0 + (-1.0 * &logits).exp());
     let y_classif = p.mapv(|prob| {
@@ -93,7 +93,7 @@ fn test_selector_logit_gradient() {
         None,
     );
 
-    let (mut selected, _scores) = selector.fit(&mut x, &y_classif, None).unwrap();
+    let (mut selected, _scores) = selector.fit(x.view(), y_classif.view(), None).unwrap();
     selected.sort();
 
     assert_eq!(selected, vec![0, 3]);

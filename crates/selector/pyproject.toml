@@ -1,0 +1,14 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "selector"
+description = "Python bindings for the selector Rust crate"
+requires-python = ">=3.10"
+dynamic = ["version"]
+dependencies = ["numpy>=1.26"]
+
+[tool.maturin]
+features = ["python"]
+python-source = "python"

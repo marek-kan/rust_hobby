@@ -1,6 +1,7 @@
 pub(crate) use ndarray::{Array, Array1, Array2, Axis, prelude::*};
-pub(crate) use ndarray::{Data, ShapeError, linalg::Dot};
+pub(crate) use ndarray::{Data, ShapeError};
 use ndarray_rand::{RandomExt, rand_distr::Normal};
+pub(crate) use std::collections::HashMap;
 pub(crate) use thiserror::Error;
 
 pub(crate) const EPS: f64 = 1e-12;
