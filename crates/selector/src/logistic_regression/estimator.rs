@@ -98,7 +98,7 @@ impl OneVsAll {
     pub(crate) fn predict(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
         let proba = self.predict_proba(X)?;
         Ok(proba
-            .map_axis(Axis(0), |a| {
+            .map_axis(Axis(1), |a| {
                 a.argmax().expect("Failed to find argmax") as f64
             })
             .insert_axis(Axis(1)))
@@ -110,16 +110,18 @@ impl OneVsAll {
 
         for (cls, est) in &self.estimators {
             let z = est.decision_boundary(X)?;
-            let p = est.sigmoid(&z);
+            let mut p = est.sigmoid(&z);
+            p = p.mapv(|x| x.clamp(EPS, 1.0));
+
             let col = *cls as usize;
-            pred.slice_mut(s![.., col]).assign(&p);
+            pred.slice_mut(s![.., col..col + 1]).assign(&p);
         }
 
-        let row_sums = pred.sum_axis(Axis(0)).insert_axis(Axis(1));
+        let row_sums = pred.sum_axis(Axis(1)).insert_axis(Axis(1));
 
         pred = pred / row_sums;
 
-        Ok(pred.mapv(|x| x.clamp(EPS, 1.0)))
+        Ok(pred)
     }
 }
 

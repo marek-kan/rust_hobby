@@ -76,6 +76,7 @@ fn test_coefficients_change() {
 #[test]
 fn test_multitarget_estimator() {
     let n = 500;
+
     let mut features: Array2<f64> = ndarray::concatenate(
         Axis(1),
         &[get_random_normal(n).view(), get_random_normal(n).view()],
@@ -97,6 +98,16 @@ fn test_multitarget_estimator() {
 
     let mut model = OneVsAll::default();
     let _ = model.fit(&x, &y, &None);
+
+    let predictions_proba = model.predict_proba(&x).unwrap();
+    let predictions_class = model.predict(&x).unwrap();
+
+    assert_eq!(predictions_proba.nrows(), 500);
+    assert_eq!(predictions_proba.ncols(), 3);
+    assert!(*predictions_proba.max().unwrap() <= 1.0);
+
+    assert_eq!(predictions_class.nrows(), 500);
+    assert_eq!(predictions_class.ncols(), 1);
 
     assert!(model.is_fitted());
 

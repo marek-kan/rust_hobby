@@ -1,7 +1,11 @@
 use super::*;
 use crate::orthogonal_selector::scores::*;
 
-pub(crate) fn weighted_inner<T, D>(x: &ArrayBase<T, D>, y: &ArrayBase<T, D>, w: &ArrayBase<T, D>) -> f64
+pub(crate) fn weighted_inner<T, D>(
+    x: &ArrayBase<T, D>,
+    y: &ArrayBase<T, D>,
+    w: &ArrayBase<T, D>,
+) -> f64
 where
     T: Data<Elem = f64>,
     D: Dimension,
