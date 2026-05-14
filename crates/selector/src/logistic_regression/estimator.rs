@@ -1,4 +1,127 @@
+use std::cmp::PartialEq;
+use std::collections::HashSet;
+use std::hash::{Hash, Hasher};
+
+use ndarray_stats::QuantileExt;
+
 use super::*;
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
+struct FloatWrapper(f64);
+
+impl Eq for FloatWrapper {}
+
+impl Hash for FloatWrapper {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Use the bit representation of the f64 for hashing
+        self.0.to_bits().hash(state);
+    }
+}
+
+fn unique_f64(values: &Array2<f64>) -> Vec<f64> {
+    let mut set = HashSet::new();
+    values
+        .iter()
+        .filter_map(|&x| {
+            let wrapped = FloatWrapper(x);
+            if set.insert(wrapped) { Some(x) } else { None }
+        })
+        .collect()
+}
+
+#[derive(Default)]
+pub(crate) struct OneVsAll {
+    pub(crate) params: LogisticRegressionParams,
+    pub(crate) estimators: HashMap<i64, LogisticRegression>,
+}
+
+impl OneVsAll {
+    pub(crate) fn new(max_iter: usize, alpha: f64, learning_rate: f64, r_tol: f64) -> Self {
+        OneVsAll {
+            params: LogisticRegressionParams {
+                max_iter,
+                alpha,
+                learning_rate,
+                r_tol,
+            },
+            estimators: HashMap::new(),
+        }
+    }
+
+    pub(crate) fn is_fitted(&self) -> bool {
+        if !self.estimators.is_empty() {
+            self.estimators.iter().all(|(_, est)| est.is_fitted())
+        } else {
+            false
+        }
+    }
+    fn create_class_mask(&self, y: &Array2<f64>, target_class: &f64) -> Array2<f64> {
+        // Create a binary mask where 1.0 represents the target class and 0.0 for others
+        let mask: ArrayBase<ndarray::OwnedRepr<f64>, Dim<[usize; 2]>, f64> =
+            y.mapv(|el| if &el == target_class { 1.0 } else { 0.0 });
+
+        // Reshape the mask into a 2D array with one column
+        mask.into_shape_with_order((y.len(), 1))
+            .expect("Failed to reshape masked target vector")
+        // mask.to_shape((y.len(), 1)).unwrap()
+    }
+
+    pub(crate) fn fit(
+        &mut self,
+        X: &Array2<f64>,
+        y: &Array2<f64>,
+        sample_weights: &Option<Array2<f64>>,
+    ) -> Result<(), FitError> {
+        let classes = unique_f64(y);
+
+        for cls in classes {
+            let y_masked = self.create_class_mask(y, &cls);
+
+            let mut est = LogisticRegression::new(
+                self.params.max_iter,
+                self.params.alpha,
+                self.params.learning_rate,
+                self.params.r_tol,
+            );
+
+            est.fit(X, &y_masked, sample_weights)
+                .unwrap_or_else(|_| panic!("Failed to fit estimator for class: {}", cls));
+
+            self.estimators.insert(cls as i64, est);
+        }
+
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn predict(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
+        let proba = self.predict_proba(X)?;
+        Ok(proba
+            .map_axis(Axis(0), |a| {
+                a.argmax().expect("Failed to find argmax") as f64
+            })
+            .insert_axis(Axis(1)))
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn predict_proba(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
+        let mut pred: Array2<f64> = Array2::zeros((X.nrows(), self.estimators.len()));
+
+        for (cls, est) in &self.estimators {
+            let z = est.decision_boundary(X)?;
+            let p = est.sigmoid(&z);
+            let col = *cls as usize;
+            pred.slice_mut(s![.., col]).assign(&p);
+        }
+
+        let row_sums = pred.sum_axis(Axis(0)).insert_axis(Axis(1));
+
+        pred = pred / row_sums;
+
+        Ok(pred.mapv(|x| x.clamp(EPS, 1.0)))
+    }
+}
 
 #[derive(Clone)]
 pub(crate) struct LogisticRegression {
@@ -63,7 +186,7 @@ impl LogisticRegression {
         let z = self.decision_boundary(X)?;
 
         let pred = self.sigmoid(&z);
-        Ok(pred.mapv(|x| x.clamp(EPS, 1.0 - EPS)))
+        Ok(pred.mapv(|x| x.clamp(EPS, 1.0)))
     }
 
     pub(crate) fn loss(
@@ -123,7 +246,7 @@ impl LogisticRegression {
         &mut self,
         X: &Array2<f64>,
         y: &Array2<f64>,
-        sample_weights: Option<Array2<f64>>,
+        sample_weights: &Option<Array2<f64>>,
     ) -> Result<(), FitError> {
         if self.is_fitted() {
             return Err(FitError::AlreadyFitted);
@@ -133,7 +256,7 @@ impl LogisticRegression {
 
         let sw = match sample_weights {
             Some(sw) => sw,
-            None => Array::ones((n, 1)),
+            None => &Array::ones((n, 1)),
         };
 
         self.coeff = Some(Array::zeros(X.ncols()));
@@ -144,13 +267,13 @@ impl LogisticRegression {
         for _ in 0..self.max_iter {
             let logits_hat = self.decision_boundary(X)?;
 
-            let loss = self.loss(&logits_hat, y, &sw)?;
+            let loss = self.loss(&logits_hat, y, sw)?;
             self.losses.push(loss);
 
             if (last_loss - loss).abs() / last_loss.abs().max(1.0) <= self.r_tol {
                 break;
             } else {
-                self.update(X, &logits_hat, y, &sw)?;
+                self.update(X, &logits_hat, y, sw)?;
                 last_loss = loss
             }
         }

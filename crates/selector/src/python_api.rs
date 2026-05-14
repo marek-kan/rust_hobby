@@ -3,7 +3,8 @@ use numpy::PyReadonlyArray2;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
-use crate::{LogisticRegressionParams, OrthogonalSelector as RustOrthogonalSelector, ScoreType};
+use crate::LogisticRegressionParams;
+use crate::{OrthogonalSelector as RustOrthogonalSelector, ScoreType};
 
 #[pyclass(name = "OrthogonalSelector", module = "selector")]
 pub struct PyOrthogonalSelector {

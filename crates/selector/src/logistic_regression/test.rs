@@ -1,5 +1,8 @@
+use ndarray_stats::QuantileExt;
+
 use super::estimator::*;
 use super::*;
+use crate::prelude::get_random_normal;
 
 #[test]
 fn test_scaler() {
@@ -30,7 +33,7 @@ fn test_fitpredict_standardized_runs() {
     let x = scaler.fit_transform(&features).unwrap();
 
     let mut model = LogisticRegression::default();
-    let _ = model.fit(&x, &y, None);
+    let _ = model.fit(&x, &y, &None);
 
     assert!(model.is_fitted());
 
@@ -57,7 +60,7 @@ fn test_coefficients_change() {
     let x = scaler.fit_transform(&features).unwrap();
 
     let mut model = LogisticRegression::default();
-    let _ = model.fit(&x, &y, None);
+    let _ = model.fit(&x, &y, &None);
 
     assert!(model.is_fitted());
 
@@ -65,6 +68,51 @@ fn test_coefficients_change() {
 
     let norm: f64 = coeff.iter().map(|v| v.abs()).sum();
     let intercept = model.intercept.unwrap().abs();
+
+    assert!(intercept > 0.0);
+    assert!(norm > 0.0);
+}
+
+#[test]
+fn test_multitarget_estimator() {
+    let n = 500;
+    let mut features: Array2<f64> = ndarray::concatenate(
+        Axis(1),
+        &[get_random_normal(n).view(), get_random_normal(n).view()],
+    )
+    .unwrap();
+
+    let x3: Array2<f64> = (&features.column(0) * &features.column(1))
+        .insert_axis(Axis(1))
+        .to_owned();
+
+    features = ndarray::concatenate(Axis(1), &[features.view(), x3.view()]).unwrap();
+
+    let y: Array2<f64> = features
+        .map_axis(Axis(1), |a| a.argmax().unwrap() as f64)
+        .insert_axis(Axis(1));
+    let mut scaler = StandardScaler::new();
+
+    let x = scaler.fit_transform(&features).unwrap();
+
+    let mut model = OneVsAll::default();
+    let _ = model.fit(&x, &y, &None);
+
+    assert!(model.is_fitted());
+
+    let coeff: Vec<Array1<f64>> = model
+        .estimators
+        .iter()
+        .map(|(_, est)| est.coeff.clone().unwrap())
+        .collect();
+
+    println!("{:?}", &coeff);
+
+    let norm: f64 = coeff.iter().fold(0.0, |acc, v| acc + v.abs().sum());
+    let intercept = model
+        .estimators
+        .iter()
+        .fold(0.0, |acc, (_, est)| acc + est.intercept.unwrap().abs());
 
     assert!(intercept > 0.0);
     assert!(norm > 0.0);

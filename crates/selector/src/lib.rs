@@ -1,10 +1,10 @@
 pub(crate) mod logistic_regression;
-pub mod orthogonal_selector;
-mod prelude;
+pub(crate) mod orthogonal_selector;
+pub mod prelude;
 
-pub use orthogonal_selector::{
-    LogisticRegressionParams, OrthogonalError, OrthogonalSelector, ScoreType,
-};
+pub use orthogonal_selector::{OrthogonalError, OrthogonalSelector, ScoreType};
+
+pub use logistic_regression::LogisticRegressionParams;
 
 #[cfg(feature = "python")]
 mod python_api;

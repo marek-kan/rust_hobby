@@ -49,7 +49,7 @@ pub fn delta_log_loss(
 
         let x_fit = StandardScaler::new().fit_transform(x_orth)?;
 
-        model.fit(&x_fit, y, Some(w.clone()))?;
+        model.fit(&x_fit, y, &Some(w.clone()))?;
 
         let logits = model.decision_boundary(&x_fit)?;
 
@@ -59,7 +59,7 @@ pub fn delta_log_loss(
     let mut model_base = estimator.clone();
     let x_fit_base = StandardScaler::new().fit_transform(data)?;
 
-    model_base.fit(&x_fit_base, y, Some(w.clone()))?;
+    model_base.fit(&x_fit_base, y, &Some(w.clone()))?;
 
     let loss_base = model_base.loss(&model_base.decision_boundary(&x_fit_base)?, y, w)?;
 
@@ -71,7 +71,7 @@ pub fn delta_log_loss(
     let x_fit_new = StandardScaler::new().fit_transform(&data_new)?;
     let mut model_new = estimator.clone();
 
-    model_new.fit(&x_fit_new, y, Some(w.clone()))?;
+    model_new.fit(&x_fit_new, y, &Some(w.clone()))?;
 
     let loss_new = model_new.loss(&model_new.decision_boundary(&x_fit_new)?, y, w)?;
 
