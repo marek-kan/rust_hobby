@@ -5,7 +5,7 @@ use rayon::{ThreadPool, ThreadPoolBuilder};
 use crate::logistic_regression::LogisticRegressionParams;
 use crate::logistic_regression::estimator::*;
 
-pub mod omp;
+pub(crate) mod omp;
 mod scores;
 
 pub use omp::{OrthogonalError, OrthogonalSelector};

@@ -8,13 +8,13 @@ pub enum ScoreType {
     LogitGradient,
 }
 
-pub fn residual_variance_ratio(x: &Array2<f64>, r: &Array2<f64>, w: &Array2<f64>) -> f64 {
+pub(crate) fn residual_variance_ratio(x: &Array2<f64>, r: &Array2<f64>, w: &Array2<f64>) -> f64 {
     let denom = (w * x * x).sum().max(EPS);
 
     (w * r * r).sum() / denom
 }
 
-pub fn squared_partial_correlation(
+pub(crate) fn squared_partial_correlation(
     x_orth: &Array2<f64>,
     y: &Array2<f64>,
     q: &Array2<f64>,
@@ -30,7 +30,7 @@ pub fn squared_partial_correlation(
     numer / denom
 }
 
-pub fn delta_log_loss(
+pub(crate) fn delta_log_loss(
     logistic_regression_params: &LogisticRegressionParams,
     data: &Array2<f64>,
     x_orth: &Array2<f64>,

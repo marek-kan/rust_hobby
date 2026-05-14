@@ -7,23 +7,23 @@ pub(crate) use thiserror::Error;
 pub(crate) const EPS: f64 = 1e-12;
 
 #[derive(Default)]
-pub struct StandardScaler {
-    pub mu: Option<Array2<f64>>,
-    pub std: Option<Array2<f64>>,
+pub(crate) struct StandardScaler {
+    pub(crate) mu: Option<Array2<f64>>,
+    pub(crate) std: Option<Array2<f64>>,
 }
 impl StandardScaler {
     fn is_fitted(&self) -> bool {
         self.mu.is_some()
     }
 
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         StandardScaler {
             mu: None,
             std: None,
         }
     }
 
-    pub fn fit(&mut self, x: &Array2<f64>) -> Result<(), FitError> {
+    pub(crate) fn fit(&mut self, x: &Array2<f64>) -> Result<(), FitError> {
         if !self.is_fitted() {
             if let Some(mu) = x.mean_axis(Axis(0)) {
                 self.mu = Some(mu.insert_axis(Axis(0)))
@@ -47,7 +47,7 @@ impl StandardScaler {
         }
     }
 
-    pub fn transform(&self, x: &Array2<f64>) -> Result<Array2<f64>, FitError> {
+    pub(crate) fn transform(&self, x: &Array2<f64>) -> Result<Array2<f64>, FitError> {
         if self.is_fitted() {
             let mu = self.mu.as_ref().unwrap();
             let s = self.std.as_ref().unwrap();
@@ -58,7 +58,7 @@ impl StandardScaler {
         }
     }
 
-    pub fn fit_transform(&mut self, x: &Array2<f64>) -> Result<Array2<f64>, FitError> {
+    pub(crate) fn fit_transform(&mut self, x: &Array2<f64>) -> Result<Array2<f64>, FitError> {
         self.fit(x)?;
         self.transform(x)
     }

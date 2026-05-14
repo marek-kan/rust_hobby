@@ -1,7 +1,7 @@
 use super::*;
 use crate::orthogonal_selector::scores::*;
 
-pub fn weighted_inner<T, D>(x: &ArrayBase<T, D>, y: &ArrayBase<T, D>, w: &ArrayBase<T, D>) -> f64
+pub(crate) fn weighted_inner<T, D>(x: &ArrayBase<T, D>, y: &ArrayBase<T, D>, w: &ArrayBase<T, D>) -> f64
 where
     T: Data<Elem = f64>,
     D: Dimension,
@@ -10,12 +10,12 @@ where
     product.sum()
 }
 
-pub fn weighted_norm(x: &Array2<f64>, w: &Array2<f64>) -> f64 {
+pub(crate) fn weighted_norm(x: &Array2<f64>, w: &Array2<f64>) -> f64 {
     let product = (w * x).t().dot(x);
     product.sum().sqrt()
 }
 
-pub fn orthogonalize(q: &Array2<f64>, x: &Array2<f64>, w: &Array2<f64>) -> Array2<f64> {
+pub(crate) fn orthogonalize(q: &Array2<f64>, x: &Array2<f64>, w: &Array2<f64>) -> Array2<f64> {
     let mut r = x.clone();
 
     if q.ncols() != 0 {
