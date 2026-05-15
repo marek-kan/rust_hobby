@@ -1,9 +1,10 @@
 use crate::prelude::HashMap;
-use numpy::PyReadonlyArray2;
+use numpy::{PyArray1, PyReadonlyArray2};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 use crate::LogisticRegressionParams;
+use crate::distance_correlation::DistanceCorrelation;
 use crate::{OrthogonalSelector as RustOrthogonalSelector, ScoreType};
 
 #[pyclass(name = "OrthogonalSelector", module = "selector")]
@@ -106,9 +107,29 @@ impl PyOrthogonalSelector {
     }
 }
 
+#[pyfunction]
+fn distance_correlation<'py>(
+    py: Python<'py>,
+    x: PyReadonlyArray2<'py, f32>,
+    y: PyReadonlyArray2<'py, f32>,
+    n_jobs: usize,
+    sample_size: Option<usize>,
+) -> PyResult<Bound<'py, PyArray1<f32>>> {
+    let x = x.as_array();
+    let y = y.as_array();
+
+    validate_shape_one_col(y.shape(), "y")?;
+    validate_row_count(x.nrows(), y.nrows(), "y")?;
+
+    let dcor = DistanceCorrelation::new(n_jobs, sample_size);
+    let scores = dcor.fit_transform(x, y);
+    Ok(PyArray1::from_vec(py, scores))
+}
+
 #[pymodule]
 fn selector(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyOrthogonalSelector>()?;
+    module.add_function(wrap_pyfunction!(distance_correlation, module)?)?;
     Ok(())
 }
 

@@ -1,6 +1,4 @@
 use crate::prelude::*;
-use rayon::prelude::*;
-use rayon::{ThreadPool, ThreadPoolBuilder};
 
 use crate::logistic_regression::LogisticRegressionParams;
 use crate::logistic_regression::estimator::*;

@@ -1,6 +1,6 @@
-from typing import Literal
+from typing import Literal, Optional
 from numpy.typing import NDArray
-from numpy import float64
+from numpy import float64, float32
 
 class OrthogonalSelector:
     def __init__(
@@ -25,3 +25,31 @@ class OrthogonalSelector:
     ) -> tuple[list[int], dict[int, float]]: ...
 
     def __repr__(self) -> str: ...
+
+def distance_correlation(
+    x: NDArray[float32],
+    y: NDArray[float32],
+    n_jobs: int,
+    sample_size: Optional[int]
+) -> NDArray[float32]:
+    """
+    Compute the distance correlation between each column of ``x`` and ``y``.
+
+    Parameters
+    ----------
+    x : NDArray[float32]
+        Feature matrix of shape ``(n, p)``.
+    y : NDArray[float32]
+        Target column vector of shape ``(n, 1)``.
+    n_jobs : int
+        Number of threads to use.
+    sample_size: Optional
+        What sub-sample to use. USeful for large datasets
+
+    Returns
+    -------
+    NDArray[float32]
+        Array of length ``p`` with one distance-correlation score per column.
+        The target distance matrix is computed once and reused across all columns.
+    """
+    ...

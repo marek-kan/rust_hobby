@@ -4,7 +4,6 @@ use super::omp::*;
 use super::scores::*;
 use super::*;
 
-use ndarray_rand::rand;
 use ndarray_rand::rand_distr::{Bernoulli, Distribution};
 
 fn make_selector_data(n: usize) -> (Array2<f64>, Array2<f64>, Array2<f64>) {

@@ -1,6 +1,8 @@
 pub(crate) use ndarray::{Array, Array1, Array2, Axis, prelude::*};
 pub(crate) use ndarray::{Data, ShapeError};
-use ndarray_rand::{RandomExt, rand_distr::Normal};
+pub(crate) use ndarray_rand::{RandomExt, SamplingStrategy, rand, rand_distr::Normal};
+pub(crate) use rayon::prelude::*;
+pub(crate) use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::cmp::PartialEq;
 pub(crate) use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
