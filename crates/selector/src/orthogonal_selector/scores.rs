@@ -36,13 +36,23 @@ pub(crate) fn delta_log_loss(
     x_orth: &Array2<f64>,
     y: &Array2<f64>,
     w: &Array2<f64>,
+    multiclass: &bool,
 ) -> Result<f64, FitError> {
-    let estimator = LogisticRegression::new(
-        logistic_regression_params.max_iter,
-        logistic_regression_params.alpha,
-        logistic_regression_params.learning_rate,
-        logistic_regression_params.r_tol,
-    );
+    let estimator: LogisticModel = if *multiclass {
+        LogisticModel::Multi(OneVsAll::new(
+            logistic_regression_params.max_iter,
+            logistic_regression_params.alpha,
+            logistic_regression_params.learning_rate,
+            logistic_regression_params.r_tol,
+        ))
+    } else {
+        LogisticModel::Binary(LogisticRegression::new(
+            logistic_regression_params.max_iter,
+            logistic_regression_params.alpha,
+            logistic_regression_params.learning_rate,
+            logistic_regression_params.r_tol,
+        ))
+    };
 
     if data.ncols() < 1 {
         let mut model = estimator.clone();
@@ -53,7 +63,7 @@ pub(crate) fn delta_log_loss(
 
         let logits = model.decision_boundary(&x_fit)?;
 
-        return model.loss(&logits, y, w);
+        return model.loss(logits.view(), y, w);
     }
 
     let mut model_base = estimator.clone();
@@ -61,7 +71,7 @@ pub(crate) fn delta_log_loss(
 
     model_base.fit(&x_fit_base, y, &Some(w.clone()))?;
 
-    let loss_base = model_base.loss(&model_base.decision_boundary(&x_fit_base)?, y, w)?;
+    let loss_base = model_base.loss(model_base.decision_boundary(&x_fit_base)?.view(), y, w)?;
 
     let mut data_new = data.clone();
     data_new
@@ -73,7 +83,7 @@ pub(crate) fn delta_log_loss(
 
     model_new.fit(&x_fit_new, y, &Some(w.clone()))?;
 
-    let loss_new = model_new.loss(&model_new.decision_boundary(&x_fit_new)?, y, w)?;
+    let loss_new = model_new.loss(model_new.decision_boundary(&x_fit_new)?.view(), y, w)?;
 
     Ok(loss_base - loss_new)
 }

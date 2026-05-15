@@ -88,14 +88,20 @@ impl OrthogonalSelector {
         q: &Array2<f64>,
         y: &Array2<f64>,
         sw: &Array2<f64>,
+        multiclass: &bool,
     ) -> f64 {
         match self.score_type {
             ScoreType::ResidualVarianceRatio => residual_variance_ratio(x, x_orth, sw),
             ScoreType::SquaredPartialCorrelation => squared_partial_correlation(x_orth, y, q, sw),
-            ScoreType::LogitGradient => {
-                delta_log_loss(&self.logistic_regression_params, q, x_orth, y, sw)
-                    .expect("Unexpected error during `delta_log_loss`")
-            }
+            ScoreType::LogitGradient => delta_log_loss(
+                &self.logistic_regression_params,
+                q,
+                x_orth,
+                y,
+                sw,
+                multiclass,
+            )
+            .expect("Unexpected error during `delta_log_loss`"),
         }
     }
 
@@ -114,6 +120,19 @@ impl OrthogonalSelector {
         sample_weights: Option<ArrayView2<f64>>,
     ) -> Result<(Vec<usize>, HashMap<usize, f64>), OrthogonalError> {
         let n = data.nrows();
+
+        let multiclass = match self.score_type {
+            ScoreType::ResidualVarianceRatio => false,
+            ScoreType::SquaredPartialCorrelation => false,
+            ScoreType::LogitGradient => {
+                let distinct_targets = unique_f64(&y);
+                if distinct_targets.len() > 2 {
+                    true
+                } else {
+                    false
+                }
+            }
+        };
 
         let sw = match sample_weights {
             Some(sw) => sw.to_owned(),
@@ -146,7 +165,7 @@ impl OrthogonalSelector {
             let x_orth = orthogonalize(&q, &x, &sw);
             let x_norm = weighted_norm(&x_orth, &sw);
 
-            let score = self.calculate_score(&x, &x_orth, &q, &y, &sw);
+            let score = self.calculate_score(&x, &x_orth, &q, &y, &sw, &multiclass);
 
             q.push_column((x_orth / x_norm).column(0))?;
             selected.push(idx);
@@ -167,7 +186,7 @@ impl OrthogonalSelector {
 
                         let x_orth = orthogonalize(&q, &x, &sw);
 
-                        let score = self.calculate_score(&x, &x_orth, &q, &y, &sw);
+                        let score = self.calculate_score(&x, &x_orth, &q, &y, &sw, &multiclass);
                         (idx, score)
                     })
                     .collect()

@@ -1,36 +1,78 @@
-use std::cmp::PartialEq;
-use std::collections::HashSet;
-use std::hash::{Hash, Hasher};
-
+use super::*;
 use ndarray_stats::QuantileExt;
 
-use super::*;
+pub(crate) trait Estimator: Clone {
+    fn fit(
+        &mut self,
+        X: &Array2<f64>,
+        y: &Array2<f64>,
+        sample_weights: &Option<Array2<f64>>,
+    ) -> Result<(), FitError>;
+    fn decision_boundary(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError>;
+    fn loss(
+        &self,
+        logits: ArrayView2<f64>,
+        y: &Array2<f64>,
+        sample_weights: &Array2<f64>,
+    ) -> Result<f64, FitError>;
+    fn predict(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError>;
+    fn predict_proba(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError>;
+    fn is_fitted(&self) -> bool;
+}
 
-#[allow(dead_code)]
-#[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
-struct FloatWrapper(f64);
+#[derive(Clone)]
+pub(crate) enum LogisticModel {
+    Binary(LogisticRegression),
+    Multi(OneVsAll),
+}
 
-impl Eq for FloatWrapper {}
+// Macro to delegate calls to the inner variants
+macro_rules! delegate_to_inner {
+    ($self:ident, $method:ident $(, $arg:expr)*) => {
+        match $self {
+            LogisticModel::Binary(inner) => inner.$method($($arg),*),
+            LogisticModel::Multi(inner) => inner.$method($($arg),*),
+        }
+    };
+}
 
-impl Hash for FloatWrapper {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        // Use the bit representation of the f64 for hashing
-        self.0.to_bits().hash(state);
+impl Estimator for LogisticModel {
+    fn is_fitted(&self) -> bool {
+        delegate_to_inner!(self, is_fitted)
+    }
+
+    fn fit(
+        &mut self,
+        X: &Array2<f64>,
+        y: &Array2<f64>,
+        sw: &Option<Array2<f64>>,
+    ) -> Result<(), FitError> {
+        delegate_to_inner!(self, fit, X, y, sw)
+    }
+
+    fn decision_boundary(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
+        delegate_to_inner!(self, decision_boundary, X)
+    }
+
+    fn loss(
+        &self,
+        logits: ArrayView2<f64>,
+        y: &Array2<f64>,
+        sw: &Array2<f64>,
+    ) -> Result<f64, FitError> {
+        delegate_to_inner!(self, loss, logits, y, sw)
+    }
+
+    fn predict(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
+        delegate_to_inner!(self, predict, X)
+    }
+
+    fn predict_proba(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
+        delegate_to_inner!(self, predict_proba, X)
     }
 }
 
-fn unique_f64(values: &Array2<f64>) -> Vec<f64> {
-    let mut set = HashSet::new();
-    values
-        .iter()
-        .filter_map(|&x| {
-            let wrapped = FloatWrapper(x);
-            if set.insert(wrapped) { Some(x) } else { None }
-        })
-        .collect()
-}
-
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(crate) struct OneVsAll {
     pub(crate) params: LogisticRegressionParams,
     pub(crate) estimators: HashMap<i64, LogisticRegression>,
@@ -49,13 +91,6 @@ impl OneVsAll {
         }
     }
 
-    pub(crate) fn is_fitted(&self) -> bool {
-        if !self.estimators.is_empty() {
-            self.estimators.iter().all(|(_, est)| est.is_fitted())
-        } else {
-            false
-        }
-    }
     fn create_class_mask(&self, y: &Array2<f64>, target_class: &f64) -> Array2<f64> {
         // Create a binary mask where 1.0 represents the target class and 0.0 for others
         let mask: ArrayBase<ndarray::OwnedRepr<f64>, Dim<[usize; 2]>, f64> =
@@ -66,8 +101,18 @@ impl OneVsAll {
             .expect("Failed to reshape masked target vector")
         // mask.to_shape((y.len(), 1)).unwrap()
     }
+}
 
-    pub(crate) fn fit(
+impl Estimator for OneVsAll {
+    fn is_fitted(&self) -> bool {
+        if !self.estimators.is_empty() {
+            self.estimators.iter().all(|(_, est)| est.is_fitted())
+        } else {
+            false
+        }
+    }
+
+    fn fit(
         &mut self,
         X: &Array2<f64>,
         y: &Array2<f64>,
@@ -95,7 +140,43 @@ impl OneVsAll {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn predict(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
+    fn decision_boundary(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
+        if !self.is_fitted() {
+            return Err(FitError::NotFitted);
+        }
+
+        let mut pred: Array2<f64> = Array2::zeros((X.nrows(), self.estimators.len()));
+
+        for (cls, est) in &self.estimators {
+            let z = est.decision_boundary(X)?;
+            let col = *cls as usize;
+            pred.slice_mut(s![.., col..col + 1]).assign(&z);
+        }
+
+        Ok(pred)
+    }
+
+    #[allow(dead_code)]
+    fn loss(
+        &self,
+        logits: ArrayView2<f64>,
+        y: &Array2<f64>,
+        sample_weights: &Array2<f64>,
+    ) -> Result<f64, FitError> {
+        let mut total_loss = 0.0;
+
+        for (cls, est) in &self.estimators {
+            let y_masked = self.create_class_mask(y, &(*cls as f64));
+            let col = *cls as usize;
+            let cls_logits = logits.slice(s![.., col..col + 1]);
+            total_loss += est.loss(cls_logits, &y_masked, sample_weights)?;
+        }
+
+        Ok(total_loss)
+    }
+
+    #[allow(dead_code)]
+    fn predict(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
         let proba = self.predict_proba(X)?;
         Ok(proba
             .map_axis(Axis(1), |a| {
@@ -105,23 +186,20 @@ impl OneVsAll {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn predict_proba(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
-        let mut pred: Array2<f64> = Array2::zeros((X.nrows(), self.estimators.len()));
+    fn predict_proba(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
+        let mut proba = self.decision_boundary(X)?;
 
         for (cls, est) in &self.estimators {
-            let z = est.decision_boundary(X)?;
-            let mut p = est.sigmoid(&z);
-            p = p.mapv(|x| x.clamp(EPS, 1.0));
-
             let col = *cls as usize;
-            pred.slice_mut(s![.., col..col + 1]).assign(&p);
+            let mut col_slice = proba.slice_mut(s![.., col..col + 1]);
+            let p = est.sigmoid(&col_slice.to_owned());
+            col_slice.assign(&p.mapv(|x| x.clamp(EPS, 1.0)));
         }
 
-        let row_sums = pred.sum_axis(Axis(1)).insert_axis(Axis(1));
+        let row_sums = proba.sum_axis(Axis(1)).insert_axis(Axis(1));
+        proba /= &row_sums;
 
-        pred = pred / row_sums;
-
-        Ok(pred)
+        Ok(proba)
     }
 }
 
@@ -149,10 +227,6 @@ impl LogisticRegression {
         }
     }
 
-    pub(crate) fn is_fitted(&self) -> bool {
-        self.coeff.is_some()
-    }
-
     fn sigmoid(&self, z: &Array2<f64>) -> Array2<f64> {
         z.mapv(|z| {
             if z >= 0.0 {
@@ -162,58 +236,6 @@ impl LogisticRegression {
                 ez / (1.0 + ez)
             }
         })
-    }
-
-    pub(crate) fn decision_boundary(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
-        let coeff = self.coeff.as_ref().ok_or(FitError::NotFitted)?;
-        let mut z = X.dot(&coeff.view().insert_axis(Axis(1)));
-
-        if let Some(intercept) = self.intercept {
-            // we might not have intercept
-            z += intercept;
-        }
-
-        Ok(z)
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn predict(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
-        let proba = self.predict_proba(X)?;
-
-        Ok(proba.mapv(|p| if p >= 0.5 { 1.0 } else { 0.0 }))
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn predict_proba(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
-        let z = self.decision_boundary(X)?;
-
-        let pred = self.sigmoid(&z);
-        Ok(pred.mapv(|x| x.clamp(EPS, 1.0)))
-    }
-
-    pub(crate) fn loss(
-        &self,
-        logits: &Array2<f64>,
-        y: &Array2<f64>,
-        sample_weights: &Array2<f64>,
-    ) -> Result<f64, FitError> {
-        let c = self.coeff.as_ref().ok_or(FitError::NotFitted)?;
-        let weight_sum = sample_weights.sum();
-
-        // logaddexp(0, z) = ln(1 + exp(z))  (stable form below)
-        let log_term = logits.mapv(|z| {
-            if z > 0.0 {
-                z + (-z).exp().ln_1p()
-            } else {
-                z.exp().ln_1p()
-            }
-        });
-
-        let base_loss = (sample_weights * (log_term - y * logits)).sum() / weight_sum;
-
-        let reg_loss = self.alpha / (2.0 * weight_sum) * c.pow2().sum();
-
-        Ok(base_loss + reg_loss)
     }
 
     fn update(
@@ -243,8 +265,66 @@ impl LogisticRegression {
 
         Ok(())
     }
+}
 
-    pub(crate) fn fit(
+impl Estimator for LogisticRegression {
+    fn is_fitted(&self) -> bool {
+        self.coeff.is_some()
+    }
+
+    fn decision_boundary(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
+        let coeff = self.coeff.as_ref().ok_or(FitError::NotFitted)?;
+        let mut z = X.dot(&coeff.view().insert_axis(Axis(1)));
+
+        if let Some(intercept) = self.intercept {
+            // we might not have intercept
+            z += intercept;
+        }
+
+        Ok(z)
+    }
+
+    #[allow(dead_code)]
+    fn predict(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
+        let proba = self.predict_proba(X)?;
+
+        Ok(proba.mapv(|p| if p >= 0.5 { 1.0 } else { 0.0 }))
+    }
+
+    #[allow(dead_code)]
+    fn predict_proba(&self, X: &Array2<f64>) -> Result<Array2<f64>, FitError> {
+        let z = self.decision_boundary(X)?;
+
+        let pred = self.sigmoid(&z);
+        Ok(pred.mapv(|x| x.clamp(EPS, 1.0)))
+    }
+
+    fn loss(
+        &self,
+        logits: ArrayView2<f64>,
+        y: &Array2<f64>,
+        sample_weights: &Array2<f64>,
+    ) -> Result<f64, FitError> {
+        let c = self.coeff.as_ref().ok_or(FitError::NotFitted)?;
+        let weight_sum = sample_weights.sum();
+
+        // logaddexp(0, z) = ln(1 + exp(z))  (stable form below)
+        let log_term = logits.mapv(|z| {
+            if z > 0.0 {
+                z + (-z).exp().ln_1p()
+            } else {
+                z.exp().ln_1p()
+            }
+        });
+
+        let base_loss = (sample_weights * (log_term - y * &logits)).sum() / weight_sum;
+
+        let reg_loss = self.alpha / (2.0 * weight_sum) * c.pow2().sum();
+
+        Ok(base_loss + reg_loss)
+    }
+
+    fn fit(
         &mut self,
         X: &Array2<f64>,
         y: &Array2<f64>,
@@ -269,7 +349,7 @@ impl LogisticRegression {
         for _ in 0..self.max_iter {
             let logits_hat = self.decision_boundary(X)?;
 
-            let loss = self.loss(&logits_hat, y, sw)?;
+            let loss = self.loss(logits_hat.view(), y, sw)?;
             self.losses.push(loss);
 
             if (last_loss - loss).abs() / last_loss.abs().max(1.0) <= self.r_tol {

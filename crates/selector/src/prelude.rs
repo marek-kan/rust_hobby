@@ -1,10 +1,39 @@
 pub(crate) use ndarray::{Array, Array1, Array2, Axis, prelude::*};
 pub(crate) use ndarray::{Data, ShapeError};
 use ndarray_rand::{RandomExt, rand_distr::Normal};
-pub(crate) use std::collections::HashMap;
+use std::cmp::PartialEq;
+pub(crate) use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 pub(crate) use thiserror::Error;
 
 pub(crate) const EPS: f64 = 1e-12;
+
+#[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
+struct FloatWrapper(f64);
+
+impl Eq for FloatWrapper {}
+
+impl Hash for FloatWrapper {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Use the bit representation of the f64 for hashing
+        self.0.to_bits().hash(state);
+    }
+}
+
+pub(crate) fn unique_f64<'a, V>(values: V) -> Vec<f64>
+where
+    V: ndarray::AsArray<'a, f64, Ix2>,
+{
+    let values = values.into();
+    let mut set = HashSet::new();
+    values
+        .iter()
+        .filter_map(|&x| {
+            let wrapped = FloatWrapper(x);
+            if set.insert(wrapped) { Some(x) } else { None }
+        })
+        .collect()
+}
 
 #[derive(Default)]
 pub(crate) struct StandardScaler {

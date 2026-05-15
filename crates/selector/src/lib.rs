@@ -1,6 +1,6 @@
 pub(crate) mod logistic_regression;
 pub(crate) mod orthogonal_selector;
-pub mod prelude;
+pub(crate) mod prelude;
 
 pub use orthogonal_selector::{OrthogonalError, OrthogonalSelector, ScoreType};
 
