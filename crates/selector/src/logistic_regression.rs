@@ -1,5 +1,9 @@
 pub(crate) mod estimator;
+pub(crate) mod models;
 use crate::prelude::*;
+use models::*;
+use estimator::*;
+use ndarray_stats::QuantileExt;
 
 #[derive(Clone, Copy)]
 pub struct LogisticRegressionParams {

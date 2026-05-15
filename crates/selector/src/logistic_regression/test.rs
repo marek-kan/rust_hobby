@@ -1,6 +1,3 @@
-use ndarray_stats::QuantileExt;
-
-use super::estimator::*;
 use super::*;
 use crate::prelude::get_random_normal;
 
