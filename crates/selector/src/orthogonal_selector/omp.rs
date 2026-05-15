@@ -5,21 +5,21 @@ pub(crate) fn weighted_inner<T, D>(
     x: &ArrayBase<T, D>,
     y: &ArrayBase<T, D>,
     w: &ArrayBase<T, D>,
-) -> f64
+) -> f32
 where
-    T: Data<Elem = f64>,
+    T: Data<Elem = f32>,
     D: Dimension,
 {
     let product = w * x * y;
     product.sum()
 }
 
-pub(crate) fn weighted_norm(x: &Array2<f64>, w: &Array2<f64>) -> f64 {
+pub(crate) fn weighted_norm(x: &Array2<f32>, w: &Array2<f32>) -> f32 {
     let product = (w * x).t().dot(x);
     product.sum().sqrt()
 }
 
-pub(crate) fn orthogonalize(q: &Array2<f64>, x: &Array2<f64>, w: &Array2<f64>) -> Array2<f64> {
+pub(crate) fn orthogonalize(q: &Array2<f32>, x: &Array2<f32>, w: &Array2<f32>) -> Array2<f32> {
     let mut r = x.clone();
 
     if q.ncols() != 0 {
@@ -48,7 +48,7 @@ pub enum OrthogonalError {
 pub struct OrthogonalSelector {
     fixed_feature_indices: Vec<usize>,
     score_type: ScoreType,
-    min_score: f64,
+    min_score: f32,
     center_featues: bool,
     thread_pool: ThreadPool,
     logistic_regression_params: LogisticRegressionParams,
@@ -58,7 +58,7 @@ impl OrthogonalSelector {
     pub fn new(
         fixed_feature_indices: Vec<usize>,
         score_type: ScoreType,
-        min_score: f64,
+        min_score: f32,
         center_featues: bool,
         n_jobs: Option<usize>,
         logistic_regression_params: Option<LogisticRegressionParams>,
@@ -83,13 +83,13 @@ impl OrthogonalSelector {
 
     fn calculate_score(
         &self,
-        x: &Array2<f64>,
-        x_orth: &Array2<f64>,
-        q: &Array2<f64>,
-        y: &Array2<f64>,
-        sw: &Array2<f64>,
+        x: &Array2<f32>,
+        x_orth: &Array2<f32>,
+        q: &Array2<f32>,
+        y: &Array2<f32>,
+        sw: &Array2<f32>,
         multiclass: &bool,
-    ) -> f64 {
+    ) -> f32 {
         match self.score_type {
             ScoreType::ResidualVarianceRatio => residual_variance_ratio(x, x_orth, sw),
             ScoreType::SquaredPartialCorrelation => squared_partial_correlation(x_orth, y, q, sw),
@@ -105,7 +105,7 @@ impl OrthogonalSelector {
         }
     }
 
-    fn weighted_center(&self, data: &Array2<f64>, sample_weights: &Array2<f64>) -> Array2<f64> {
+    fn weighted_center(&self, data: &Array2<f32>, sample_weights: &Array2<f32>) -> Array2<f32> {
         let weight_sum = sample_weights.sum();
         let mut means = data.t().dot(sample_weights) / weight_sum;
         means.reverse_axes();
@@ -115,17 +115,17 @@ impl OrthogonalSelector {
 
     pub fn fit(
         &self,
-        data: ArrayView2<f64>,
-        y: ArrayView2<f64>,
-        sample_weights: Option<ArrayView2<f64>>,
-    ) -> Result<(Vec<usize>, HashMap<usize, f64>), OrthogonalError> {
+        data: ArrayView2<f32>,
+        y: ArrayView2<f32>,
+        sample_weights: Option<ArrayView2<f32>>,
+    ) -> Result<(Vec<usize>, HashMap<usize, f32>), OrthogonalError> {
         let n = data.nrows();
 
         let multiclass = match self.score_type {
             ScoreType::ResidualVarianceRatio => false,
             ScoreType::SquaredPartialCorrelation => false,
             ScoreType::LogitGradient => {
-                let distinct_targets = unique_f64(&y);
+                let distinct_targets = unique_f32(&y);
                 if distinct_targets.len() > 2 {
                     true
                 } else {
@@ -140,9 +140,9 @@ impl OrthogonalSelector {
         };
 
         let y = y.to_owned();
-        let mut q: Array2<f64> = Array2::zeros((n, 0));
+        let mut q: Array2<f32> = Array2::zeros((n, 0));
         let mut selected: Vec<usize> = vec![];
-        let mut scores: HashMap<usize, f64> = HashMap::new();
+        let mut scores: HashMap<usize, f32> = HashMap::new();
         let mut explore_feature_indices: Vec<usize> = (0..data.ncols()).collect();
         println!("{:?}", explore_feature_indices);
 
@@ -173,7 +173,7 @@ impl OrthogonalSelector {
         }
 
         while !explore_feature_indices.is_empty() {
-            let results: Vec<(usize, f64)> = self.thread_pool.install(|| {
+            let results: Vec<(usize, f32)> = self.thread_pool.install(|| {
                 explore_feature_indices
                     .par_iter()
                     .map(|i| {

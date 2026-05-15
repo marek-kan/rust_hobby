@@ -11,7 +11,7 @@ use crate::{OrthogonalSelector as RustOrthogonalSelector, ScoreType};
 pub struct PyOrthogonalSelector {
     fixed_feature_indices: Vec<usize>,
     score_type: ScoreType,
-    min_score: f64,
+    min_score: f32,
     center_features: bool,
     n_jobs: Option<usize>,
     logistic_params: Option<LogisticRegressionParams>,
@@ -24,13 +24,13 @@ impl PyOrthogonalSelector {
     fn new(
         fixed_feature_indices: Vec<usize>,
         score_type: &str,
-        min_score: f64,
+        min_score: f32,
         center_features: bool,
         n_jobs: Option<usize>,
         max_iter: Option<usize>,
-        alpha: Option<f64>,
-        learning_rate: Option<f64>,
-        r_tol: Option<f64>,
+        alpha: Option<f32>,
+        learning_rate: Option<f32>,
+        r_tol: Option<f32>,
     ) -> PyResult<Self> {
         let log_params_default = LogisticRegressionParams::default();
         let logistic_params = Some(LogisticRegressionParams::new(
@@ -54,10 +54,10 @@ impl PyOrthogonalSelector {
     fn fit<'py>(
         &self,
         py: Python<'py>,
-        data: PyReadonlyArray2<'py, f64>,
-        y: PyReadonlyArray2<'py, f64>,
-        sample_weights: Option<PyReadonlyArray2<'py, f64>>,
-    ) -> PyResult<(Vec<usize>, HashMap<usize, f64>)> {
+        data: PyReadonlyArray2<'py, f32>,
+        y: PyReadonlyArray2<'py, f32>,
+        sample_weights: Option<PyReadonlyArray2<'py, f32>>,
+    ) -> PyResult<(Vec<usize>, HashMap<usize, f32>)> {
         let data = data.as_array();
         let y = y.as_array();
         let sample_weights = sample_weights.as_ref().map_or(None, |a| Some(a.as_array()));

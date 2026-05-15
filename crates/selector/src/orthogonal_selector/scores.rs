@@ -8,18 +8,18 @@ pub enum ScoreType {
     LogitGradient,
 }
 
-pub(crate) fn residual_variance_ratio(x: &Array2<f64>, r: &Array2<f64>, w: &Array2<f64>) -> f64 {
+pub(crate) fn residual_variance_ratio(x: &Array2<f32>, r: &Array2<f32>, w: &Array2<f32>) -> f32 {
     let denom = (w * x * x).sum().max(EPS);
 
     (w * r * r).sum() / denom
 }
 
 pub(crate) fn squared_partial_correlation(
-    x_orth: &Array2<f64>,
-    y: &Array2<f64>,
-    q: &Array2<f64>,
-    w: &Array2<f64>,
-) -> f64 {
+    x_orth: &Array2<f32>,
+    y: &Array2<f32>,
+    q: &Array2<f32>,
+    w: &Array2<f32>,
+) -> f32 {
     let r_y = orthogonalize(q, y, w);
     let denom_x = (w * x_orth * x_orth).sum();
     let denom_y = (w * &r_y * &r_y).sum();
@@ -32,12 +32,12 @@ pub(crate) fn squared_partial_correlation(
 
 pub(crate) fn delta_log_loss(
     logistic_regression_params: &LogisticRegressionParams,
-    data: &Array2<f64>,
-    x_orth: &Array2<f64>,
-    y: &Array2<f64>,
-    w: &Array2<f64>,
+    data: &Array2<f32>,
+    x_orth: &Array2<f32>,
+    y: &Array2<f32>,
+    w: &Array2<f32>,
     multiclass: &bool,
-) -> Result<f64, FitError> {
+) -> Result<f32, FitError> {
     let estimator: LogisticModel = if *multiclass {
         LogisticModel::Multi(OneVsAll::new(
             logistic_regression_params.max_iter,

@@ -1,6 +1,6 @@
 from typing import Literal, Optional
 from numpy.typing import NDArray
-from numpy import float64, float32
+from numpy import float32
 
 class OrthogonalSelector:
     def __init__(
@@ -19,9 +19,9 @@ class OrthogonalSelector:
 
     def fit(
         self,
-        data: NDArray[float64],
-        y: NDArray[float64],
-        sample_weights: NDArray[float64] | None = None,
+        data: NDArray[float32],
+        y: NDArray[float32],
+        sample_weights: NDArray[float32] | None = None,
     ) -> tuple[list[int], dict[int, float]]: ...
 
     def __repr__(self) -> str: ...

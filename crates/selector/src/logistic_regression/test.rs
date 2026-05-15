@@ -6,7 +6,7 @@ use crate::prelude::get_random_normal;
 
 #[test]
 fn test_scaler() {
-    let arr: Array2<f64> = array![[0.0], [1.0], [0.5], [5.0], [3.0]];
+    let arr: Array2<f32> = array![[0.0], [1.0], [0.5], [5.0], [3.0]];
     let expected_std = arr.std_axis(Axis(0), 0.0);
     let expected_mu = arr.mean_axis(Axis(0)).unwrap();
 
@@ -26,8 +26,8 @@ fn test_scaler() {
 
 #[test]
 fn test_fitpredict_standardized_runs() {
-    let features: Array2<f64> = array![[0.0], [1.0], [0.5], [5.0], [3.0]];
-    let y: Array2<f64> = array![[0.], [0.], [0.], [1.], [1.]];
+    let features: Array2<f32> = array![[0.0], [1.0], [0.5], [5.0], [3.0]];
+    let y: Array2<f32> = array![[0.], [0.], [0.], [1.], [1.]];
     let mut scaler = StandardScaler::new();
 
     let x = scaler.fit_transform(&features).unwrap();
@@ -53,8 +53,8 @@ fn test_fitpredict_standardized_runs() {
 
 #[test]
 fn test_coefficients_change() {
-    let features: Array2<f64> = array![[0.0], [1.0], [0.5], [5.0], [3.0]];
-    let y: Array2<f64> = array![[0.], [0.], [0.], [1.], [1.]];
+    let features: Array2<f32> = array![[0.0], [1.0], [0.5], [5.0], [3.0]];
+    let y: Array2<f32> = array![[0.], [0.], [0.], [1.], [1.]];
     let mut scaler = StandardScaler::new();
 
     let x = scaler.fit_transform(&features).unwrap();
@@ -66,7 +66,7 @@ fn test_coefficients_change() {
 
     let coeff = model.coeff.unwrap();
 
-    let norm: f64 = coeff.iter().map(|v| v.abs()).sum();
+    let norm: f32 = coeff.iter().map(|v| v.abs()).sum();
     let intercept = model.intercept.unwrap().abs();
 
     assert!(intercept > 0.0);
@@ -77,20 +77,20 @@ fn test_coefficients_change() {
 fn test_multitarget_estimator() {
     let n = 500;
 
-    let mut features: Array2<f64> = ndarray::concatenate(
+    let mut features: Array2<f32> = ndarray::concatenate(
         Axis(1),
         &[get_random_normal(n).view(), get_random_normal(n).view()],
     )
     .unwrap();
 
-    let x3: Array2<f64> = (&features.column(0) * &features.column(1))
+    let x3: Array2<f32> = (&features.column(0) * &features.column(1))
         .insert_axis(Axis(1))
         .to_owned();
 
     features = ndarray::concatenate(Axis(1), &[features.view(), x3.view()]).unwrap();
 
-    let y: Array2<f64> = features
-        .map_axis(Axis(1), |a| a.argmax().unwrap() as f64)
+    let y: Array2<f32> = features
+        .map_axis(Axis(1), |a| a.argmax().unwrap() as f32)
         .insert_axis(Axis(1));
     let mut scaler = StandardScaler::new();
 
@@ -111,7 +111,7 @@ fn test_multitarget_estimator() {
 
     assert!(model.is_fitted());
 
-    let coeff: Vec<Array1<f64>> = model
+    let coeff: Vec<Array1<f32>> = model
         .estimators
         .iter()
         .map(|(_, est)| est.coeff.clone().unwrap())
@@ -119,7 +119,7 @@ fn test_multitarget_estimator() {
 
     println!("{:?}", &coeff);
 
-    let norm: f64 = coeff.iter().fold(0.0, |acc, v| acc + v.abs().sum());
+    let norm: f32 = coeff.iter().fold(0.0, |acc, v| acc + v.abs().sum());
     let intercept = model
         .estimators
         .iter()

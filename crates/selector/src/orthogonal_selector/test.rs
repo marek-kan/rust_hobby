@@ -6,7 +6,7 @@ use super::*;
 
 use ndarray_rand::rand_distr::{Bernoulli, Distribution};
 
-fn make_selector_data(n: usize) -> (Array2<f64>, Array2<f64>, Array2<f64>) {
+fn make_selector_data(n: usize) -> (Array2<f32>, Array2<f32>, Array2<f32>) {
     let z1 = get_random_normal(n);
     let z2 = get_random_normal(n);
 
@@ -75,7 +75,7 @@ fn test_selector_logit_gradient() {
 
     let p = 1.0 / (1.0 + (-1.0 * &logits).exp());
     let y_classif = p.mapv(|prob| {
-        let bernoulli = Bernoulli::new(prob).unwrap();
+        let bernoulli = Bernoulli::new(prob.into()).unwrap();
         if bernoulli.sample(&mut rnd_seed) {
             1.0
         } else {
@@ -109,12 +109,12 @@ fn test_selector_logit_gradient_multiclass() {
         let p_cls2 = 1.0 / (1.0 + (-logits_cls2[[i, 0]]).exp());
 
         // High probability for class 2 if x5 is large
-        if Bernoulli::new(p_cls2.clamp(0.001, 0.999))
+        if Bernoulli::new(p_cls2.clamp(0.001, 0.999).into())
             .unwrap()
             .sample(&mut rng)
         {
             y_multiclass[[i, 0]] = 2.0;
-        } else if Bernoulli::new(p_bin.clamp(0.001, 0.999))
+        } else if Bernoulli::new(p_bin.clamp(0.001, 0.999).into())
             .unwrap()
             .sample(&mut rng)
         {

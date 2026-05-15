@@ -4,13 +4,13 @@ use crate::prelude::*;
 #[derive(Clone, Copy)]
 pub struct LogisticRegressionParams {
     pub max_iter: usize,
-    pub alpha: f64,
-    pub learning_rate: f64,
-    pub r_tol: f64,
+    pub alpha: f32,
+    pub learning_rate: f32,
+    pub r_tol: f32,
 }
 
 impl LogisticRegressionParams {
-    pub fn new(max_iter: usize, alpha: f64, learning_rate: f64, r_tol: f64) -> Self {
+    pub fn new(max_iter: usize, alpha: f32, learning_rate: f32, r_tol: f32) -> Self {
         Self {
             max_iter,
             alpha,
