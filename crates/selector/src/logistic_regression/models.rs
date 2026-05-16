@@ -132,7 +132,6 @@ impl Estimator for OneVsAll {
     }
 }
 
-
 #[derive(Clone)]
 pub(crate) struct LogisticRegression {
     pub(crate) max_iter: usize,

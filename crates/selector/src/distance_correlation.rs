@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use ndarray::Zip;
 
 use crate::prelude::*;
@@ -31,6 +33,8 @@ impl DistanceCorrelation {
             &distance_matrix(y, Some(&self.thread_pool)),
             &self.thread_pool,
         );
+        let counter = AtomicUsize::new(0);
+        let total = x.ncols();
 
         self.thread_pool.install(|| {
             (0..x.ncols())
@@ -51,6 +55,8 @@ impl DistanceCorrelation {
                     if denom < 1e-12 {
                         return 0.0;
                     }
+                    let done = counter.fetch_add(1, Ordering::Relaxed) + 1;
+                    println!("Progress: {done}/{total}");
 
                     (dcov / denom).sqrt().max(0.0)
                 })

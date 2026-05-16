@@ -144,7 +144,6 @@ impl OrthogonalSelector {
         let mut selected: Vec<usize> = vec![];
         let mut scores: HashMap<usize, f32> = HashMap::new();
         let mut explore_feature_indices: Vec<usize> = (0..data.ncols()).collect();
-        println!("{:?}", explore_feature_indices);
 
         for i in &self.fixed_feature_indices {
             let idx = i.to_owned();
@@ -171,6 +170,8 @@ impl OrthogonalSelector {
             selected.push(idx);
             scores.insert(idx, score);
         }
+
+        let mut round: usize = 0;
 
         while !explore_feature_indices.is_empty() {
             let results: Vec<(usize, f32)> = self.thread_pool.install(|| {
@@ -199,6 +200,14 @@ impl OrthogonalSelector {
             });
 
             if let Some(&(best_feature_idx, best_feature_score)) = best_feature {
+                println!(
+                    "Round {}; features to explore: {}; best feature idx/score: {}/{:.5}",
+                    round,
+                    explore_feature_indices.len(),
+                    best_feature_idx,
+                    best_feature_score
+                );
+
                 scores.insert(best_feature_idx, best_feature_score);
 
                 if best_feature_score >= self.min_score {
@@ -234,6 +243,8 @@ impl OrthogonalSelector {
             } else {
                 break;
             };
+
+            round += 1;
         }
 
         Ok((selected, scores))

@@ -7,7 +7,7 @@ name = "selector"
 description = "Python bindings for the selector Rust crate"
 requires-python = ">=3.10"
 dynamic = ["version"]
-dependencies = ["numpy>=1.26"]
+dependencies = ["numpy>=1.26,<2.0"]
 
 [tool.maturin]
 features = ["python"]

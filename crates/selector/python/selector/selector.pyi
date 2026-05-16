@@ -19,18 +19,21 @@ class OrthogonalSelector:
 
     def fit(
         self,
-        data: NDArray[float32],
+        x: NDArray[float32],
         y: NDArray[float32],
         sample_weights: NDArray[float32] | None = None,
     ) -> tuple[list[int], dict[int, float]]: ...
+    """
+    
+    """
 
     def __repr__(self) -> str: ...
 
 def distance_correlation(
     x: NDArray[float32],
     y: NDArray[float32],
-    n_jobs: int,
-    sample_size: Optional[int]
+    n_jobs: Optional[int] = 1,
+    sample_size: Optional[int] = None
 ) -> NDArray[float32]:
     """
     Compute the distance correlation between each column of ``x`` and ``y``.

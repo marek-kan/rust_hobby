@@ -50,15 +50,15 @@ impl PyOrthogonalSelector {
         })
     }
 
-    #[pyo3(signature = (data, y, sample_weights=None))]
+    #[pyo3(signature = (x, y, sample_weights=None))]
     fn fit<'py>(
         &self,
         py: Python<'py>,
-        data: PyReadonlyArray2<'py, f32>,
+        x: PyReadonlyArray2<'py, f32>,
         y: PyReadonlyArray2<'py, f32>,
         sample_weights: Option<PyReadonlyArray2<'py, f32>>,
     ) -> PyResult<(Vec<usize>, HashMap<usize, f32>)> {
-        let data = data.as_array();
+        let data = x.as_array();
         let y = y.as_array();
         let sample_weights = sample_weights.as_ref().map_or(None, |a| Some(a.as_array()));
 
@@ -108,11 +108,12 @@ impl PyOrthogonalSelector {
 }
 
 #[pyfunction]
+#[pyo3(signature = (x, y, n_jobs=1, sample_size=None))]
 fn distance_correlation<'py>(
     py: Python<'py>,
     x: PyReadonlyArray2<'py, f32>,
     y: PyReadonlyArray2<'py, f32>,
-    n_jobs: usize,
+    n_jobs: Option<usize>,
     sample_size: Option<usize>,
 ) -> PyResult<Bound<'py, PyArray1<f32>>> {
     let x = x.as_array();
@@ -121,8 +122,8 @@ fn distance_correlation<'py>(
     validate_shape_one_col(y.shape(), "y")?;
     validate_row_count(x.nrows(), y.nrows(), "y")?;
 
-    let dcor = DistanceCorrelation::new(n_jobs, sample_size);
-    let scores = dcor.fit_transform(x, y);
+    let dcor = DistanceCorrelation::new(n_jobs.unwrap_or(1), sample_size);
+    let scores = py.detach(move || dcor.fit_transform(x, y));
     Ok(PyArray1::from_vec(py, scores))
 }
 
