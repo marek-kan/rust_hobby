@@ -68,29 +68,42 @@ When built with the `python` feature, the generated Python module exposes:
 - `OrthogonalSelector`
 - `distance_correlation`
 
-Accepted score-type strings for the Python selector are:
+Accepted score-type strings for the Python selector dictate the evaluation metric used to select the next feature:
 
-- `residual_variance_ratio`
-- `squared_partial_correlation`
-- `logit_gradient`
+- **`residual_variance_ratio`**: Measures feature novelty. It selects the candidate feature that retains the highest proportion of its original variance after being orthogonalized against the already-selected features. Note that this metric evaluates linear independence from the selected set and does not involve the target variable directly.
+- **`squared_partial_correlation`**: Suitable for regression tasks. It evaluates candidate features based on their squared partial correlation with the target variable, controlling for the impact of the features that have already been selected.
+- **`logit_gradient`**: Suitable for classification tasks. It selects the candidate feature that produces the largest improvement (decrease in log loss) to a logistic regression model, considering the currently selected features. It supports both binary and multiclass target arrays.
 
 The current binding expects `data` as a 2D feature matrix and `y` as a 2D array with shape `(n_rows, 1)`. Both as float32.
 
 Example:
 
 ```python
+import numpy as np
 from selector import OrthogonalSelector, distance_correlation
 
+# Generate random float32 data
+n_samples, n_features = 1000, 20
+data = np.random.randn(n_samples, n_features).astype(np.float32)
+y = (data[:, 0] * 2.0 + data[:, 3] + np.random.randn(n_samples)).astype(np.float32).reshape(-1, 1)
+
+# Initialize the orthogonal feature selector
 model = OrthogonalSelector(
-    fixed_feature_indices=[],  # list[int]
+    fixed_feature_indices=[0],  # Can be empty list, i.e., `[]`
     score_type="squared_partial_correlation",
-    min_score=0.05,
+    min_score=0.01,
     center_features=True,
     n_jobs=2,
 )
 
-selected, scores = model.fit(data, y)
+# Fit the model to retrieve selected feature indices and their iteration scores
+selected_indices, scores_dict = model.fit(data, y)
+print("Selected features:", selected_indices)
+print("Selection scores:", scores_dict)
+
+# Compute standalone distance-correlation scores for all features vs the target
 dcor_scores = distance_correlation(data, y, n_jobs=4, sample_size=None)
+print("Distance correlation scores:", dcor_scores)
 ```
 
 ## Common Commands

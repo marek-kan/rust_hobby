@@ -1,3 +1,3 @@
-from .selector import OrthogonalSelector # pyright: ignore[reportMissingModuleSource]
+from .selector import OrthogonalSelector, distance_correlation # pyright: ignore[reportMissingModuleSource]
 
-__all__ = ["OrthogonalSelector"]
+__all__ = ["OrthogonalSelector", "distance_correlation"]

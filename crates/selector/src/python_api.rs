@@ -107,8 +107,7 @@ impl PyOrthogonalSelector {
     }
 }
 
-#[pyfunction]
-#[pyo3(signature = (x, y, n_jobs=1, sample_size=None))]
+#[pyfunction(signature = (x, y, n_jobs=1, sample_size=None))]
 fn distance_correlation<'py>(
     py: Python<'py>,
     x: PyReadonlyArray2<'py, f32>,
