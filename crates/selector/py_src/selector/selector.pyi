@@ -3,19 +3,6 @@ from numpy.typing import NDArray
 from numpy import float32
 
 class OrthogonalSelector:
-    def __init__(
-        self,
-        fixed_feature_indices: list[int],
-        score_type: Literal["residual_variance_ratio", "squared_partial_correlation", "logit_gradient"],
-        min_score: float,
-        center_features: bool,
-        n_jobs: int | None = None,
-        *,
-        max_iter: int = 500,
-        alpha: float = 1.0,
-        learning_rate: float = 0.05,
-        r_tol: float = 1e-4,
-    ) -> None: ...
     """
     An orthogonal feature selector that iteratively picks features maximizing a given score.
 
@@ -29,12 +16,12 @@ class OrthogonalSelector:
     score_type : {"residual_variance_ratio", "squared_partial_correlation", "logit_gradient"}
         The evaluation metric used to select the next feature.
         - "residual_variance_ratio": Measures feature novelty; selects the feature that 
-          retains the highest proportion of its original variance after orthogonalizing 
-          against already selected features (does not involve the target).
+        retains the highest proportion of its original variance after orthogonalizing 
+        against already selected features (does not involve the target).
         - "squared_partial_correlation": Suitable for regression; measures the squared 
-          partial correlation between the feature and the target, given already selected features.
+        partial correlation between the feature and the target, given already selected features.
         - "logit_gradient": Suitable for classification; selects the feature that produces 
-          the largest absolute gradient step in a logistic regression model.
+        the largest absolute gradient step in a logistic regression model.
     min_score : float
         The minimum score required to select a candidate feature. Selection stops early if 
         no remaining feature achieves this value.
@@ -52,31 +39,46 @@ class OrthogonalSelector:
         Relative tolerance parameter for declaring convergence.
     """
 
+    def __init__(
+        self,
+        fixed_feature_indices: list[int],
+        score_type: Literal["residual_variance_ratio", "squared_partial_correlation", "logit_gradient"],
+        min_score: float,
+        center_features: bool,
+        n_jobs: int | None = None,
+        *,
+        max_iter: int = 500,
+        alpha: float = 1.0,
+        learning_rate: float = 0.05,
+        r_tol: float = 1e-4,
+    ) -> None: ...
+
     def fit(
         self,
         x: NDArray[float32],
         y: NDArray[float32],
         sample_weights: NDArray[float32] | None = None,
-    ) -> tuple[list[int], dict[int, float]]: ...
-    """
-    Compute score between features, ``x``, and the target, ``y``.
+    ) -> tuple[list[int], dict[int, float]]:
+        """
+        Compute score between features, ``x``, and the target, ``y``.
 
-    Parameters
-    ----------
-    x : NDArray[float32]
-        Feature matrix of shape ``(n, m)``.
-    y : NDArray[float32]
-        Target column vector of shape ``(n, 1)``.
-    sample_weights: Optional NDArray[float32]
-        For assigning different level of importance to the samples, shape  ``(n, 1)``.
+        Parameters
+        ----------
+        x : NDArray[float32]
+            Feature matrix of shape ``(n, m)``.
+        y : NDArray[float32]
+            Target column vector of shape ``(n, 1)``.
+        sample_weights: Optional NDArray[float32]
+            For assigning different level of importance to the samples, shape  ``(n, 1)``.
 
-    Returns
-    -------
-    Tuple[List[int], Dict[int, float]]
-        Tuple of length 2.
-        Index 0: List of selected indices.
-        Index 1: Dictionary where key is the index of a feature and value is its score value.
-    """
+        Returns
+        -------
+        Tuple[List[int], Dict[int, float]]
+            Tuple of length 2.
+            Index 0: List of selected indices.
+            Index 1: Dictionary where key is the index of a feature and value is its score value.
+        """
+        ...
 
     def __repr__(self) -> str: ...
 

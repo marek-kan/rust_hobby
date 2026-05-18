@@ -4,11 +4,11 @@ build-backend = "maturin"
 
 [project]
 name = "selector"
-description = "Python bindings for the selector Rust crate"
+description = "Tools for orthogonal matching pursuit and non-linear correlation"
 requires-python = ">=3.10"
 dynamic = ["version"]
 dependencies = ["numpy>=1.26,<2.0"]
 
 [tool.maturin]
 features = ["python"]
-python-source = "python"
+python-source = "py_src"

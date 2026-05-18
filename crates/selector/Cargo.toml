@@ -13,8 +13,6 @@ unsafe_code = "allow"
 [dependencies]
 ndarray = { version = "0.17.2", features = ["rayon"] }
 ndarray-rand = "0.16.0"
-polars = { version = "0.53.0", features = ["lazy"] }
-
 rayon = "1.11.0"
 ndarray-stats = "0.7.0"
 thiserror = "2.0.18"
@@ -24,4 +22,3 @@ numpy = { version = "0.28.0", optional = true }
 [features]
 default = []
 python = ["dep:numpy", "dep:pyo3"]
-
