@@ -97,12 +97,19 @@ impl PyOrthogonalSelector {
     }
 
     fn __repr__(&self) -> String {
+        let logistic_params = self.logistic_params.unwrap_or_default();
+
         format!(
-            "OrthogonalSelector(score_type='{}', min_score={}, center_features={}, n_jobs={:?})",
+            "OrthogonalSelector(fixed_feature_indices={:?}, score_type='{}', min_score={}, center_features={}, n_jobs={:?}, max_iter={}, alpha={}, learning_rate={}, r_tol={})",
+            self.fixed_feature_indices,
             score_type_name(self.score_type),
             self.min_score,
             self.center_features,
             self.n_jobs,
+            logistic_params.max_iter,
+            logistic_params.alpha,
+            logistic_params.learning_rate,
+            logistic_params.r_tol,
         )
     }
 }
@@ -115,14 +122,14 @@ fn distance_correlation<'py>(
     n_jobs: Option<usize>,
     sample_size: Option<usize>,
 ) -> PyResult<Bound<'py, PyArray1<f32>>> {
-    let x = x.as_array();
+    let data = x.as_array();
     let y = y.as_array();
 
     validate_shape_one_col(y.shape(), "y")?;
-    validate_row_count(x.nrows(), y.nrows(), "y")?;
+    validate_row_count(data.nrows(), y.nrows(), "y")?;
 
     let dcor = DistanceCorrelation::new(n_jobs.unwrap_or(1), sample_size);
-    let scores = py.detach(move || dcor.fit_transform(x, y));
+    let scores = py.detach(move || dcor.fit_transform(data, y));
     Ok(PyArray1::from_vec(py, scores))
 }
 
@@ -158,17 +165,17 @@ fn validate_row_count(expected_rows: usize, actual_rows: usize, name: &str) -> P
     }
 
     Err(PyValueError::new_err(format!(
-        "`{name}` must have {expected_rows} rows to match `data`; got {actual_rows}"
+        "`{name}` must have {expected_rows} rows to match the feature matrix; got {actual_rows}"
     )))
 }
 
 fn validate_shape_one_col(shape: &[usize], name: &str) -> PyResult<()> {
-    if (shape.len() == 2) & (shape[1] == 1) {
+    if shape.len() == 2 && shape[1] == 1 {
         return Ok(());
     }
 
     Err(PyValueError::new_err(format!(
-        "`{name}` must be 2D of shape (n_rows, 1) has shape: {:?}",
+        "`{name}` must be a 2D column vector with shape (n_rows, 1); got {:?}",
         shape
     )))
 }

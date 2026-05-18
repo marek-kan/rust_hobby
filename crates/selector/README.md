@@ -8,7 +8,7 @@
 
 - Orthogonal feature selection
 - Distance-correlation scoring
-- Logistic-regression support for classification-oriented scoring paths (`ScoreType.LogitGradient`)
+- Logistic-regression support for classification-oriented scoring paths (`logit_gradient`)
 - Python bindings behind the `python` feature
 
 ## Layout
@@ -19,7 +19,7 @@ selector
 ├── README.md
 ├── _notes
 ├── pyproject.toml
-├── python
+├── py_src
 └── src
     ├── distance_correlation.rs
     ├── lib.rs
@@ -48,7 +48,7 @@ selector
 - `src/logistic_regression.rs` wires the logistic-regression module.
 - `src/logistic_regression/estimator.rs` and `models.rs` contain the estimator internals and supporting model code.
 - `src/python_api.rs` exposes the Python module when building with `--features python`.
-- `pyproject.toml` and `python/` hold Maturin-based Python packaging metadata.
+- `pyproject.toml` and `py_src/selector/` hold Maturin-based Python packaging metadata and the Python package shim.
 - `src/main.rs` is a scratch/demo entry point rather than a stable user-facing CLI.
 
 ## Rust API Surface
@@ -72,7 +72,7 @@ Accepted score-type strings for the Python selector dictate the evaluation metri
 
 - **`residual_variance_ratio`**: Measures feature novelty. It selects the candidate feature that retains the highest proportion of its original variance after being orthogonalized against the already-selected features. Note that this metric evaluates linear independence from the selected set and does not involve the target variable directly.
 - **`squared_partial_correlation`**: Suitable for regression tasks. It evaluates candidate features based on their squared partial correlation with the target variable, controlling for the impact of the features that have already been selected.
-- **`logit_gradient`**: Suitable for classification tasks. It selects the candidate feature that produces the largest improvement (decrease in log loss) to a logistic regression model, considering the currently selected features. It supports both binary and multiclass target arrays.
+- **`logit_gradient`**: Suitable for classification tasks. It selects the candidate feature that produces the largest improvement in logistic-regression log loss for the currently selected features. It supports both binary and multiclass target arrays.
 
 The current binding expects `data` as a 2D feature matrix and `y` as a 2D array with shape `(n_rows, 1)`. Both as float32.
 
@@ -105,6 +105,58 @@ print("Selection scores:", scores_dict)
 dcor_scores = distance_correlation(data, y, n_jobs=4, sample_size=None)
 print("Distance correlation scores:", dcor_scores)
 ```
+
+## Quick Start
+
+The Python wheel is a native extension, so install a wheel built for your platform or build the package locally with Maturin.
+
+### Install A Built Wheel
+
+From `crates/selector`:
+
+```bash
+python -m maturin build --features python
+python -m pip install target/wheels/selector-*.whl
+```
+
+### Editable Development Install
+
+From `crates/selector`:
+
+```bash
+python -m maturin develop --features python
+```
+
+### First Run
+
+```python
+import numpy as np
+from selector import OrthogonalSelector, distance_correlation
+
+rng = np.random.default_rng(0)
+x = rng.normal(size=(256, 8)).astype(np.float32)
+y = (2.0 * x[:, 0] - x[:, 3] + rng.normal(scale=0.5, size=256)).astype(np.float32).reshape(-1, 1)
+
+selector = OrthogonalSelector(
+    fixed_feature_indices=[],
+    score_type="squared_partial_correlation",
+    min_score=0.01,
+    center_features=True,
+    n_jobs=4,
+)
+
+selected_indices, scores = selector.fit(x, y)
+print(selector)
+print(selected_indices)
+print(scores)
+
+dcor_scores = distance_correlation(x, y, n_jobs=4)
+print(dcor_scores)
+```
+
+Runtime docs are available through `help(OrthogonalSelector)` and `help(distance_correlation)`.
+
+For classification problems, use `score_type="logit_gradient"`; it ranks candidate features by improvement in logistic-regression log loss.
 
 ## Common Commands
 

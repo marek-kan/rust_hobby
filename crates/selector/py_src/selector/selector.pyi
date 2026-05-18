@@ -21,7 +21,7 @@ class OrthogonalSelector:
         - "squared_partial_correlation": Suitable for regression; measures the squared 
         partial correlation between the feature and the target, given already selected features.
         - "logit_gradient": Suitable for classification; selects the feature that produces 
-        the largest absolute gradient step in a logistic regression model.
+        the largest improvement in logistic-regression log loss for the current selected feature set (supports multiclass).
     min_score : float
         The minimum score required to select a candidate feature. Selection stops early if 
         no remaining feature achieves this value.
@@ -60,7 +60,7 @@ class OrthogonalSelector:
         sample_weights: NDArray[float32] | None = None,
     ) -> tuple[list[int], dict[int, float]]:
         """
-        Compute score between features, ``x``, and the target, ``y``.
+        Fit the selector on ``x`` and ``y``.
 
         Parameters
         ----------
