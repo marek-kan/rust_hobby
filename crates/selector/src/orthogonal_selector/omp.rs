@@ -38,8 +38,8 @@ pub(crate) fn orthogonalize(q: &Array2<f32>, x: &Array2<f32>, w: &Array2<f32>) -
 
 #[derive(Error, Debug)]
 pub enum OrthogonalError {
-    #[error("Fixed feature not orthogonal: {0} to the set: {1:?}")]
-    FixedFeatureNotOrthogonal(usize, Vec<usize>),
+    #[error("Feature {0} is not orthogonal to the set: {1:?}")]
+    FeatureNotOrthogonal(usize, Vec<usize>),
 
     #[error[transparent]]
     QShapeError(#[from] ShapeError),
@@ -164,6 +164,11 @@ impl OrthogonalSelector {
             let x_orth = orthogonalize(&q, &x, &sw);
             let x_norm = weighted_norm(&x_orth, &sw);
 
+            if x_norm < EPS {
+                println!("Fixed feature {} is linearly dependant with the set: {:?}", idx, selected);
+                continue;
+            }
+
             let score = self.calculate_score(&x, &x_orth, &q, &y, &sw, &multiclass);
 
             q.push_column((x_orth / x_norm).column(0))?;
@@ -186,6 +191,12 @@ impl OrthogonalSelector {
                         }
 
                         let x_orth = orthogonalize(&q, &x, &sw);
+                        let x_norm = weighted_norm(&x_orth, &sw);
+
+                        if x_norm < EPS {
+                            // Lin. dependant
+                            return (idx, 0.0);
+                        }
 
                         let score = self.calculate_score(&x, &x_orth, &q, &y, &sw, &multiclass);
                         (idx, score)
